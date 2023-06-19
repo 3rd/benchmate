@@ -31,7 +31,7 @@ const defaultOptions: BenchmarkOptions = {
   batching: { enabled: true, size: "auto" },
   warmupIterations: "auto",
   method: "auto",
-  testSleepDuration: 100,
+  testSleepDuration: 0,
   quiet: false,
   setup: noop,
   teardown: noop,
