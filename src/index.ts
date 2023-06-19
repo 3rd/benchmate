@@ -1,12 +1,13 @@
 /* eslint-disable no-await-in-loop */
+import { printResult, printResults } from "./print";
 import { computeTaskStats } from "./stats";
 import { getNowProvider } from "./time";
 import { sleep, noop } from "./utils";
 
-type BenchmarkOptions = {
+export type BenchmarkOptions = {
   iterations: number;
-  batching: { enabled: boolean; size: number };
-  warmupIterations: number;
+  batching: { enabled: boolean; size: number | "auto" };
+  warmupIterations: number | "auto";
   method: "auto" | "hrtime" | "performance.now";
   testSleepDuration: number;
   quiet: boolean;
@@ -14,26 +15,26 @@ type BenchmarkOptions = {
   teardown: () => Promise<void> | void;
 };
 
-const defaultOptions: BenchmarkOptions = {
-  iterations: 200_0000,
-  batching: { enabled: true, size: 10_000 },
-  warmupIterations: 10_000,
-  method: "auto",
-  testSleepDuration: 0,
-  quiet: false,
-  setup: noop,
-  teardown: noop,
-};
-
-type Task = {
+export type Task = {
   name: string;
   fn: () => Promise<void> | void;
   isAsync: boolean;
 };
 
-type BenchmarkResult = {
+export type BenchmarkResult = {
   name: string;
   stats: ReturnType<typeof computeTaskStats>;
+};
+
+const defaultOptions: BenchmarkOptions = {
+  iterations: 100_000,
+  batching: { enabled: true, size: "auto" },
+  warmupIterations: "auto",
+  method: "auto",
+  testSleepDuration: 100,
+  quiet: false,
+  setup: noop,
+  teardown: noop,
 };
 
 class Bench {
@@ -56,7 +57,9 @@ class Bench {
   }
 
   private async warmup(task: Task) {
-    for (let i = 0; i < this.options.warmupIterations; i++) {
+    const warmupIterations =
+      this.options.warmupIterations === "auto" ? this.options.iterations / 10 : this.options.warmupIterations;
+    for (let i = 0; i < warmupIterations; i++) {
       if (task.isAsync) await task.fn();
       else task.fn();
     }
@@ -79,10 +82,17 @@ class Bench {
   };
 
   private async runTask(task: Task): Promise<BenchmarkResult> {
-    await this.warmup(task);
     await this.options.setup();
 
-    const batchSize = this.options.batching.enabled ? this.options.batching.size : 1;
+    let batchSize = this.options.iterations;
+    if (this.options.batching.enabled) {
+      if (this.options.batching.size === "auto") {
+        const batchSize = Math.max(1, Math.floor(this.options.iterations / 100));
+        console.log(`Using batch size: ${batchSize}`);
+      } else {
+        batchSize = this.options.batching.size;
+      }
+    }
     const batchCount = this.options.batching.enabled ? Math.ceil(this.options.iterations / batchSize) : 1;
     const batchTimings = new Float64Array(batchCount);
     const batchSizes = new Uint32Array(batchCount);
@@ -90,19 +100,18 @@ class Bench {
     const measure = task.isAsync ? this.measureTaskBatchAsync : this.measureTaskBatchSync;
 
     let iterationIndex = 0;
+    await this.warmup(task);
     while (iterationIndex < this.options.iterations) {
-      const currentBatchIndex = this.options.batching.enabled
-        ? Math.floor(iterationIndex / this.options.batching.size)
-        : 0;
+      const currentBatchIndex = this.options.batching.enabled ? Math.floor(iterationIndex / batchSize) : 0;
       const currentBatchSize = this.options.batching.enabled
-        ? Math.min(this.options.batching.size, this.options.iterations - iterationIndex)
+        ? Math.min(batchSize, this.options.iterations - iterationIndex)
         : this.options.iterations - iterationIndex;
 
       const elapsed = await measure(task, currentBatchSize);
-      iterationIndex += currentBatchSize;
-
       batchTimings[currentBatchIndex] = elapsed;
       batchSizes[currentBatchIndex] = currentBatchSize;
+
+      iterationIndex += currentBatchSize;
     }
 
     await this.options.teardown();
@@ -114,45 +123,16 @@ class Bench {
   async run(): Promise<BenchmarkResult[]> {
     const results: BenchmarkResult[] = [];
 
-    for (let i = 0; i < this.options.warmupIterations; i++) {
-      noop();
-    }
-
     for (const task of this.tasks) {
       const result = await this.runTask(task);
       results.push(result);
-      if (!this.options.quiet) this.printResult(result);
+      if (!this.options.quiet) printResult(result);
       await sleep(this.options.testSleepDuration);
     }
 
-    if (!this.options.quiet) this.printResults(results);
+    if (!this.options.quiet) printResults(results);
 
     return results;
-  }
-
-  private printResult(result: BenchmarkResult) {
-    console.table({
-      [result.name]: {
-        "ops/sec": Math.round(result.stats.opsPerSecond.average),
-        "avg (ns)": result.stats.time.average.ns,
-        "min (ns)": result.stats.time.min.ns,
-        "max (ns)": result.stats.time.max.ns,
-      },
-    });
-  }
-
-  printResults(results: BenchmarkResult[]) {
-    const table = results.reduce((acc, result) => {
-      acc[result.name] = {
-        "ops/sec": Math.round(result.stats.opsPerSecond.average),
-        "avg (ns)": result.stats.time.average.ns,
-        "min (ns)": result.stats.time.min.ns,
-        "max (ns)": result.stats.time.max.ns,
-      };
-
-      return acc;
-    }, {} as Record<string, Record<string, string | number>>);
-    console.table(table);
   }
 }
 
