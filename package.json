@@ -44,6 +44,7 @@
     "trailingComma": "es5",
     "useTabs": false
   },
+  "sometimes": "i hate semantic-release",
   "devDependencies": {
     "@commitlint/cli": "^17.6.3",
     "@commitlint/config-conventional": "^17.6.3",
