@@ -7,6 +7,9 @@ export const printResult = (result: BenchmarkResult) => {
       "avg (ns)": result.stats.time.average.ns,
       "min (ns)": result.stats.time.min.ns,
       "max (ns)": result.stats.time.max.ns,
+      "p50 (ns)": result.stats.time.percentile50.ns,
+      "p90 (ns)": result.stats.time.percentile90.ns,
+      "p95 (ns)": result.stats.time.percentile95.ns,
     },
   });
 };
