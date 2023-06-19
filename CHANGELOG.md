@@ -1,3 +1,9 @@
+## [1.0.2](https://github.com/3rd/benchmate/compare/v1.0.1...v1.0.2) (2023-06-19)
+
+### Bug Fixes
+
+- trigger build ([586e6fb](https://github.com/3rd/benchmate/commit/586e6fbd8951b0fd2ff16759e7ef491666f74776))
+
 # 1.0.0 (2023-06-19)
 
 ### Bug Fixes
