@@ -24,6 +24,12 @@ yarn add -D benchmate
 
 ## Usage
 
+Notes:
+
+- **Don't disable batching** if you want accurate measurements.
+- **Don't benchmark really fast async functions**, there's a lot of overhead and it messes up the measurements.
+- If you're testing really fast code make sure to **increase the iteration count** until the ops/sec value stabilizes.
+
 ```ts
 import { Bench } from "benchmate";
 
@@ -50,13 +56,42 @@ bench.add("String#indexOf", () => {
 });
 
 await bench.run();
+// ^ returns an array of benchmark results:
+// type BenchmarkResult = {
+//   name: string;
+//   stats: {
+//     samples: number;
+//     batches: number;
+//     time: {
+//       min: {
+//         ms: number;
+//         ns: number;
+//       };
+//       max: {
+//         ms: number;
+//         ns: number;
+//       };
+//       average: {
+//         ms: number;
+//         ns: number;
+//       };
+//       percentile50: {
+//         ms: number;
+//         ns: number;
+//       };
+//       percentile90: {
+//           ...;
+//       };
+//       percentile95: {
+//           ...;
+//       };
+//     };
+//     opsPerSecond: {
+//       average: number;
+//       max: number;
+//       min: number;
+//     };
 ```
-
-## Notes
-
-- **Don't disable batching** if you want accurate measurements.
-- **Don't benchmark really fast async functions**, there's a lot of overhead and it messes up the measurements.
-- If you're testing really fast code make sure to **increase the iteration count** until the ops/sec value stabilizes.
 
 ## Acknowledgements
 
