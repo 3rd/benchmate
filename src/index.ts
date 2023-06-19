@@ -132,7 +132,12 @@ class Bench {
 
   private printResult(result: BenchmarkResult) {
     console.table({
-      [result.name]: result.stats,
+      [result.name]: {
+        "ops/sec": Math.round(result.stats.opsPerSecond.average),
+        "avg (ns)": result.stats.time.average.ns,
+        "min (ns)": result.stats.time.min.ns,
+        "max (ns)": result.stats.time.max.ns,
+      },
     });
   }
 
