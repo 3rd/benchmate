@@ -3,7 +3,10 @@
   "version": "0.0.0-semantic-release",
   "repository": "https://github.com/3rd/benchmate",
   "description": "JS benchmark tool",
-  "keywords": [],
+  "keywords": [
+    "benchmark",
+    "performance"
+  ],
   "author": {
     "name": "Andrei Neculaesei",
     "email": "3rd@users.noreply.github.com"
