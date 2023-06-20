@@ -26,7 +26,7 @@ yarn add -D benchmate
 
 Notes:
 
-- **Don't disable batching** if you want accurate measurements.
+- **Don't disable batching** if you want accurate measurements. Metrics like `min`, `max`, and percentiles will me meaningless, as you get a single measurement.
 - **Don't expect accurate timings for fast async functions**, but you can compare their performance.
 
 ```ts
