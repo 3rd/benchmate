@@ -27,19 +27,23 @@ yarn add -D benchmate
 Notes:
 
 - **Don't disable batching** if you want accurate measurements.
-- **Don't benchmark really fast async functions**, there's a lot of overhead and it messes up the measurements.
-- If you're testing really fast code make sure to **increase the iteration count** until the ops/sec value stabilizes.
+- **Don't expect accurate timings for fast async functions**, but you can compare their performance.
 
 ```ts
 import { Bench } from "benchmate";
 
+// The default options are sensible,
 const bench = new Bench({
-  iterations: 100_000, // number of iterations
+  iterations: "auto", // number of iterations, must be "auto" when using time ╷
+  time: 1000, // target running time for tasks                              ⮜─╯
   batching: { // batching improves accuracy by a <lot>
     enabled: true,
-    size: "auto" // number of iterations per batch or "auto" for (iterations / 100)
+    size: "auto" // number of iterations per batch or "auto"
   },
-  warmupIterations: "auto", // number of warmup iterations or "auto" for (iterations / 10)
+  warmup: {
+    enabled: true,
+    size: "auto", // number of warmup iterations or "auto" for (iterations / 10)
+  },
   method: "auto", // "auto" | "hrtime" | "performance.now" - measurement method, defaults to best available
   testSleepDuration: 0, // how long to sleep between tasks (ms)
   quiet: false, // don't print anything
@@ -95,6 +99,6 @@ await bench.run();
 
 ## Acknowledgements
 
-- [Benchmark.js](https://github.com/bestiejs/benchmark.js) (abandoned)
+- [Mathias Bynens](https://mathiasbynens.be) and [Benchmark.js](https://github.com/bestiejs/benchmark.js)
 - [mitata](https://github.com/evanwashere/mitata)
 - [tinybench](https://github.com/tinylibs/tinybench)

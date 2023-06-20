@@ -5,19 +5,29 @@ import { getNowProvider } from "./time";
 import { sleep, noop } from "./utils";
 
 export type BenchmarkOptions = {
-  iterations: number;
+  batching?: { enabled?: boolean; size?: number | "auto" };
+  warmup?: { enabled?: boolean; iterations?: number | "auto" };
+  method: "auto" | "hrtime" | "performance.now";
+  testSleepDuration?: number;
+  quiet?: boolean;
+  setup?: () => Promise<void> | void;
+  teardown?: () => Promise<void> | void;
+} & ({ iterations?: number } | { iterations: "auto"; time?: number });
+
+type InternalBenchmarkOptions = {
   batching: { enabled: boolean; size: number | "auto" };
-  warmupIterations: number | "auto";
+  warmup: { enabled: boolean; iterations: number | "auto" };
   method: "auto" | "hrtime" | "performance.now";
   testSleepDuration: number;
   quiet: boolean;
   setup: () => Promise<void> | void;
   teardown: () => Promise<void> | void;
-};
+} & ({ iterations: number } | { iterations: "auto"; time: number });
 
 export type Task = {
   name: string;
   fn: () => Promise<void> | void;
+  compiledFn: (iterations: number, now: () => number) => Promise<number> | number;
   isAsync: boolean;
 };
 
@@ -26,87 +36,129 @@ export type BenchmarkResult = {
   stats: ReturnType<typeof computeTaskStats>;
 };
 
-const defaultOptions: BenchmarkOptions = {
-  iterations: 100_000,
+const defaultOptions = {
+  iterations: "auto",
+  time: 1000,
   batching: { enabled: true, size: "auto" },
-  warmupIterations: "auto",
+  warmup: { enabled: true, iterations: "auto" },
   method: "auto",
   testSleepDuration: 0,
   quiet: false,
   setup: noop,
   teardown: noop,
-};
+} as const;
 
 class Bench {
   tasks: Task[] = [];
-  options: BenchmarkOptions = defaultOptions;
+  options: InternalBenchmarkOptions = defaultOptions;
   now: () => number;
 
-  constructor(options?: Partial<BenchmarkOptions>) {
-    if (options)
-      this.options = { ...defaultOptions, ...options, batching: { ...defaultOptions.batching, ...options.batching } };
+  constructor(options?: BenchmarkOptions) {
+    if (options) {
+      const { iterations, batching, warmup, ...rest } = options;
+      if ("iterations" in options && iterations !== "auto" && "time" in options && typeof options.time === "number") {
+        throw new Error(
+          "The 'time' option is only supported when 'iterations' is set to 'auto' as the iteration count is automatically computed for each task based on the target time."
+        );
+      }
+      this.options = {
+        ...defaultOptions,
+        ...rest,
+        batching: { ...defaultOptions.batching, ...batching },
+        warmup: { ...defaultOptions.warmup, ...warmup },
+      };
+    }
     this.now = getNowProvider(this.options.method);
   }
 
+  private compileTaskFunction(fn: () => Promise<void> | void): () => Promise<number> | number {
+    const isAsync = fn() instanceof Promise;
+    const body = [
+      isAsync ? `async function (iterations, now) {` : `function (iterations, now) {`,
+      `
+      let remainingIterations = iterations;
+      const start = now();
+      while (remainingIterations--) {
+        ${isAsync ? "await " : ""}fn();
+      }
+      return now() - start;
+    }`,
+    ];
+    return new Function(`return (function(fn) { return ${body.join("\n")} });`)()(fn);
+  }
+
   add(name: string, fn: () => Promise<void> | void) {
-    const task: Task = { name, fn, isAsync: fn() instanceof Promise };
+    const isAsync = fn() instanceof Promise;
+    const compiledFn = this.compileTaskFunction(fn);
+    const task: Task = { name, fn, compiledFn, isAsync };
+
     if (task.isAsync) {
       console.warn(`Warning: Using asynchronous functions in task '${task.name}' will affect measurement accuracy.`);
     }
     this.tasks.push(task);
   }
 
-  private async warmup(task: Task) {
-    const warmupIterations =
-      this.options.warmupIterations === "auto" ? this.options.iterations / 10 : this.options.warmupIterations;
-    for (let i = 0; i < warmupIterations; i++) {
-      if (task.isAsync) await task.fn();
-      else task.fn();
+  private async computeTaskIterationsForDuration(task: Task): Promise<number> {
+    const measurementTarget = 500;
+    if (this.options.iterations === "auto") {
+      let iterations = 1;
+      let elapsed = 0;
+      while (elapsed < measurementTarget) {
+        elapsed = await this.measureTaskBatch(task, iterations);
+        if (elapsed < measurementTarget / 2) {
+          iterations *= 2;
+        } else {
+          break;
+        }
+      }
+      const targetIterations = Math.floor((this.options.time / elapsed) * iterations);
+      return targetIterations;
     }
+    return this.options.iterations;
   }
 
-  private measureTaskBatchSync = (task: Task, size: number = 1): number => {
-    const start = this.now();
-    for (let i = 0; i < size; i++) {
-      task.fn();
-    }
-    return this.now() - start;
-  };
+  private async warmup(task: Task, taskIterations: number) {
+    const warmupIterations =
+      this.options.warmup.iterations === "auto" ? taskIterations / 10 : this.options.warmup.iterations;
+    await this.measureTaskBatch(task, warmupIterations);
+  }
 
-  private measureTaskBatchAsync = async (task: Task, size: number = 1): Promise<number> => {
-    const start = this.now();
-    for (let i = 0; i < size; i++) {
-      await task.fn();
-    }
-    return this.now() - start;
+  private measureTaskBatch = async (task: Task, size: number = 1): Promise<number> => {
+    return await task.compiledFn(Math.floor(size), this.now);
   };
 
   private async runTask(task: Task): Promise<BenchmarkResult> {
-    await this.options.setup();
+    const taskIterations = await this.computeTaskIterationsForDuration(task);
 
-    let batchSize = this.options.iterations;
+    let batchSize = taskIterations;
     if (this.options.batching.enabled) {
       if (this.options.batching.size === "auto") {
-        batchSize = Math.max(1, Math.floor(this.options.iterations / 100));
+        if (taskIterations < 1000) batchSize = taskIterations / 25;
+        else if (taskIterations < 10000) batchSize = taskIterations / 50;
+        else if (taskIterations < 100000) batchSize = taskIterations / 100;
+        else if (taskIterations < 1000000) batchSize = taskIterations / 200;
+        else batchSize = taskIterations / 500;
       } else {
         batchSize = this.options.batching.size;
       }
     }
-    const batchCount = this.options.batching.enabled ? Math.ceil(this.options.iterations / batchSize) : 1;
+    batchSize = Math.max(1, Math.floor(batchSize));
+    const batchCount = this.options.batching.enabled ? Math.ceil(taskIterations / batchSize) : 1;
     const batchTimings = new Float64Array(batchCount);
     const batchSizes = new Uint32Array(batchCount);
 
-    const measure = task.isAsync ? this.measureTaskBatchAsync : this.measureTaskBatchSync;
-
     let iterationIndex = 0;
-    await this.warmup(task);
-    while (iterationIndex < this.options.iterations) {
+    if (this.options.warmup) await this.warmup(task, taskIterations);
+
+    await this.options.setup();
+
+    while (iterationIndex < taskIterations) {
       const currentBatchIndex = this.options.batching.enabled ? Math.floor(iterationIndex / batchSize) : 0;
       const currentBatchSize = this.options.batching.enabled
-        ? Math.min(batchSize, this.options.iterations - iterationIndex)
-        : this.options.iterations - iterationIndex;
+        ? Math.min(batchSize, taskIterations - iterationIndex)
+        : taskIterations - iterationIndex;
 
-      const elapsed = await measure(task, currentBatchSize);
+      const elapsed = await this.measureTaskBatch(task, currentBatchSize);
       batchTimings[currentBatchIndex] = elapsed;
       batchSizes[currentBatchIndex] = currentBatchSize;
 

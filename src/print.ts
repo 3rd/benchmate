@@ -10,6 +10,7 @@ export const printResult = (result: BenchmarkResult) => {
       "p50 (ns)": result.stats.time.percentile50.ns,
       "p90 (ns)": result.stats.time.percentile90.ns,
       "p95 (ns)": result.stats.time.percentile95.ns,
+      grouping: `samples: ${result.stats.samples} batches: ${result.stats.batches}`,
     },
   });
 };
@@ -23,7 +24,7 @@ export const printResults = (results: BenchmarkResult[]) => {
       "p50 (ns)": result.stats.time.percentile50.ns,
       "p90 (ns)": result.stats.time.percentile90.ns,
       "p95 (ns)": result.stats.time.percentile95.ns,
-      samples: result.stats.samples,
+      grouping: `samples: ${result.stats.samples} batches: ${result.stats.batches}`,
     };
 
     return acc;
