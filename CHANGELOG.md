@@ -1,3 +1,9 @@
+# [1.2.0](https://github.com/3rd/benchmate/compare/v1.1.0...v1.2.0) (2023-06-20)
+
+### Features
+
+- refactor BenchmarkOptions, fix math, prettier units, add debug flag and logging ([68d7be1](https://github.com/3rd/benchmate/commit/68d7be1db15ee7510769aa2562ac7b713e43ddcf))
+
 # [1.1.0](https://github.com/3rd/benchmate/compare/v1.0.3...v1.1.0) (2023-06-20)
 
 ### Features
