@@ -87,8 +87,7 @@ class Bench {
     let batchSize = this.options.iterations;
     if (this.options.batching.enabled) {
       if (this.options.batching.size === "auto") {
-        const batchSize = Math.max(1, Math.floor(this.options.iterations / 100));
-        console.log(`Using batch size: ${batchSize}`);
+        batchSize = Math.max(1, Math.floor(this.options.iterations / 100));
       } else {
         batchSize = this.options.batching.size;
       }
