@@ -1,3 +1,9 @@
+## [1.0.3](https://github.com/3rd/benchmate/compare/v1.0.2...v1.0.3) (2023-06-20)
+
+### Bug Fixes
+
+- fix auto-computed batch size not used ([0a10733](https://github.com/3rd/benchmate/commit/0a1073387d23c62a598280dac88415a3cf8560ff))
+
 ## [1.0.2](https://github.com/3rd/benchmate/compare/v1.0.1...v1.0.2) (2023-06-19)
 
 ### Bug Fixes
