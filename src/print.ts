@@ -1,16 +1,25 @@
 import type { BenchmarkResult } from ".";
 
+const formatMS = (ms: number, decimals = 4): string => {
+  const ns = ms * 1_000_000;
+  if (ns < 1000) return `${ns.toFixed(decimals)}ns`;
+  if (ns < 1_000_000) return `${(ns / 1000).toFixed(decimals)}µs`;
+  if (ms < 1_000) return `${ms.toFixed(decimals)}ms`;
+  return `${(ms / 1000).toFixed(decimals)}s`;
+};
+
 export const printResult = (result: BenchmarkResult) => {
   console.table({
     [result.name]: {
       "ops/sec": Math.round(result.stats.opsPerSecond.average),
-      "avg (ns)": result.stats.time.average.ns,
-      "min (ns)": result.stats.time.min.ns,
-      "max (ns)": result.stats.time.max.ns,
-      "p50 (ns)": result.stats.time.percentile50.ns,
-      "p90 (ns)": result.stats.time.percentile90.ns,
-      "p95 (ns)": result.stats.time.percentile95.ns,
-      grouping: `samples: ${result.stats.samples} batches: ${result.stats.batches}`,
+      avg: formatMS(result.stats.time.average),
+      min: formatMS(result.stats.time.min),
+      max: formatMS(result.stats.time.max),
+      p50: formatMS(result.stats.time.percentile50),
+      p90: formatMS(result.stats.time.percentile90),
+      p95: formatMS(result.stats.time.percentile95),
+      samples: result.stats.samples,
+      time: formatMS(result.stats.time.total),
     },
   });
 };
@@ -19,12 +28,14 @@ export const printResults = (results: BenchmarkResult[]) => {
   const table = results.reduce((acc, result) => {
     acc[result.name] = {
       "ops/sec": Math.round(result.stats.opsPerSecond.average),
-      "avg (ns)": result.stats.time.average.ns,
-      "min .. max (ns)": `${result.stats.time.min.ns} .. ${result.stats.time.max.ns}`,
-      "p50 (ns)": result.stats.time.percentile50.ns,
-      "p90 (ns)": result.stats.time.percentile90.ns,
-      "p95 (ns)": result.stats.time.percentile95.ns,
-      grouping: `samples: ${result.stats.samples} batches: ${result.stats.batches}`,
+      avg: formatMS(result.stats.time.average),
+      min: formatMS(result.stats.time.min),
+      max: formatMS(result.stats.time.max),
+      p50: formatMS(result.stats.time.percentile50),
+      p90: formatMS(result.stats.time.percentile90),
+      p95: formatMS(result.stats.time.percentile95),
+      samples: result.stats.samples,
+      time: formatMS(result.stats.time.total),
     };
 
     return acc;

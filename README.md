@@ -66,29 +66,14 @@ await bench.run();
 //   stats: {
 //     samples: number;
 //     batches: number;
-//     time: {
-//       min: {
-//         ms: number;
-//         ns: number;
-//       };
-//       max: {
-//         ms: number;
-//         ns: number;
-//       };
-//       average: {
-//         ms: number;
-//         ns: number;
-//       };
-//       percentile50: {
-//         ms: number;
-//         ns: number;
-//       };
-//       percentile90: {
-//           ...;
-//       };
-//       percentile95: {
-//           ...;
-//       };
+//     time: { // all timings are in milliseconds
+//       total: number;
+//       min: number;
+//       max: number;
+//       average: number;
+//       percentile50: number;
+//       percentile90: number;
+//       percentile95: number;
 //     };
 //     opsPerSecond: {
 //       average: number;
