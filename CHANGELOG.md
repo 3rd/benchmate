@@ -1,3 +1,9 @@
+# [1.1.0](https://github.com/3rd/benchmate/compare/v1.0.3...v1.1.0) (2023-06-20)
+
+### Features
+
+- compile test functions and auto-compute task iterations based on target time ([9fb4a9b](https://github.com/3rd/benchmate/commit/9fb4a9b4b603a7d4bcee77995232c69120ec98b5))
+
 ## [1.0.3](https://github.com/3rd/benchmate/compare/v1.0.2...v1.0.3) (2023-06-20)
 
 ### Bug Fixes
