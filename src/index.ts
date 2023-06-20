@@ -27,7 +27,6 @@ export type Task = {
   name: string;
   fn: () => Promise<void> | void;
   compiledFn: (iterations: number, now: () => number) => Promise<number> | number;
-  isAsync: boolean;
 };
 
 export type BenchmarkResult = {
@@ -86,7 +85,13 @@ class Bench {
     console.log(...args);
   }
 
-  private compileTaskFunction(fn: () => Promise<void> | void): () => Promise<number> | number {
+  private compileTaskFunction(fn: () => Promise<void> | void) {
+    // return async (iterations: number, now: () => number) => {
+    //   let remainingIterations = iterations;
+    //   const start = now();
+    //   while (remainingIterations--) { await fn(); }
+    //   return now() - start;
+    // };
     const isAsync = fn() instanceof Promise;
     const body = [
       isAsync ? `async function (iterations, now) {` : `function (iterations, now) {`,
@@ -195,9 +200,9 @@ class Bench {
   add(name: string, fn: () => Promise<void> | void) {
     const isAsync = fn() instanceof Promise;
     const compiledFn = this.compileTaskFunction(fn);
-    const task: Task = { name, fn, compiledFn, isAsync };
+    const task: Task = { name, fn, compiledFn };
 
-    if (task.isAsync) {
+    if (isAsync) {
       console.warn(`Warning: Using asynchronous functions in task '${task.name}' will affect measurement accuracy.`);
     }
     this.tasks.push(task);
