@@ -1,3 +1,9 @@
+# [1.3.0](https://github.com/3rd/benchmate/compare/v1.2.0...v1.3.0) (2023-06-20)
+
+### Features
+
+- sort result summary by ops and simplify single result printing ([2e2c81d](https://github.com/3rd/benchmate/commit/2e2c81d965cd053f8e706971fdfa5e3cc11595c9))
+
 # [1.2.0](https://github.com/3rd/benchmate/compare/v1.1.0...v1.2.0) (2023-06-20)
 
 ### Features
