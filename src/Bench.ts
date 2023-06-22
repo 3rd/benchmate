@@ -43,7 +43,7 @@ const defaultOptions = {
   warmup: { enabled: true, iterations: "auto" },
   method: "auto",
   testSleepDuration: 0,
-  quiet: false,
+  quiet: typeof window !== "undefined",
 } as const;
 
 class Bench {
