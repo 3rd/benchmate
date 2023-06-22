@@ -1,3 +1,9 @@
+# [1.5.0](https://github.com/3rd/benchmate/compare/v1.4.0...v1.5.0) (2023-06-22)
+
+### Features
+
+- colorize default output ([113decc](https://github.com/3rd/benchmate/commit/113deccde5c9c7a2151e5f157d119ad8239401f0))
+
 # [1.4.0](https://github.com/3rd/benchmate/compare/v1.3.0...v1.4.0) (2023-06-22)
 
 ### Features
