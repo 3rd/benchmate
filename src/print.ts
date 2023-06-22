@@ -1,4 +1,28 @@
 import type { BenchmarkResult } from ".";
+import { global } from "./global";
+
+// https://no-color.org/
+const noColor = Boolean(global.process?.env?.NO_COLOR);
+
+const createDecorator = (ansiCode: string) => (text: string | number) => {
+  return `\x1b[${ansiCode}m${text}\x1b[0m`;
+};
+const colorize = (colorCode: string) => (text: string | number) => {
+  return noColor ? text.toString() : `\x1b[${colorCode}m${text}\x1b[0m`;
+};
+
+const bold = createDecorator("1");
+const underline = colorize("4");
+
+const black = colorize("30");
+const red = colorize("31");
+const green = colorize("32");
+const yellow = colorize("33");
+const blue = colorize("34");
+const magenta = colorize("35");
+const cyan = colorize("36");
+const white = colorize("37");
+const gray = colorize("90");
 
 const formatMS = (ms: number, decimalPlaces = 2): string => {
   const ns = ms * 1_000_000;
@@ -8,28 +32,44 @@ const formatMS = (ms: number, decimalPlaces = 2): string => {
   return `${(ms / 1000).toFixed(decimalPlaces)}s`;
 };
 
+const formatIterations = (opsPerSecond: number): string => {
+  let value = Math.floor(opsPerSecond);
+  const parts = [];
+  while (value > 0) {
+    parts.unshift(value % 1000);
+    value = Math.floor(value / 1000);
+  }
+  return parts.join("_");
+};
+
 export const printResult = (result: BenchmarkResult) => {
-  console.log(`[${result.name}] completed`, result.stats.samples, "iterations in", formatMS(result.stats.time.total));
+  console.log(
+    bold(blue(result.name)),
+    `completed`,
+    yellow(formatIterations(result.stats.samples)),
+    "iterations in",
+    yellow(formatMS(result.stats.time.total))
+  );
   console.log(
     "  ops/sec:",
-    Math.floor(result.stats.opsPerSecond.average),
-    `±${result.stats.opsPerSecond.margin.toFixed(2)}%`
+    cyan(formatIterations(result.stats.opsPerSecond.average)),
+    yellow(`±${result.stats.opsPerSecond.margin.toFixed(2)}%`)
   );
   console.log(
     "  avg:",
-    formatMS(result.stats.time.average),
+    yellow(formatMS(result.stats.time.average)),
     "min:",
-    formatMS(result.stats.time.min),
+    yellow(formatMS(result.stats.time.min)),
     "max:",
-    formatMS(result.stats.time.max)
+    yellow(formatMS(result.stats.time.max))
   );
   console.log(
     "  p50:",
-    formatMS(result.stats.time.percentile50),
+    yellow(formatMS(result.stats.time.percentile50)),
     "p90:",
-    formatMS(result.stats.time.percentile90),
+    yellow(formatMS(result.stats.time.percentile90)),
     "p95:",
-    formatMS(result.stats.time.percentile95)
+    yellow(formatMS(result.stats.time.percentile95))
   );
   console.log("");
 };
@@ -40,7 +80,7 @@ export const printResults = (results: BenchmarkResult[]) => {
   // stats table
   const table = results.reduce((acc, result) => {
     acc[result.name] = {
-      "ops/sec": Math.round(result.stats.opsPerSecond.average),
+      "ops/sec": result.stats.opsPerSecond.average,
       margin: `±${result.stats.opsPerSecond.margin.toFixed(2)}%`,
       avg: formatMS(result.stats.time.average),
       min: formatMS(result.stats.time.min),
@@ -63,12 +103,12 @@ export const printResults = (results: BenchmarkResult[]) => {
     comparisons.push([results[i].name, Number(ratio)]);
   }
   console.log(
-    `Fastest is ${results[0].name} with`,
-    Math.round(baseline),
-    "ops/sec",
-    `(±${results[0].stats.opsPerSecond.margin.toFixed(2)}%)`
+    `Fastest is ${bold(cyan(results[0].name))} with`,
+    cyan(formatIterations(baseline)),
+    yellow(`±${results[0].stats.opsPerSecond.margin.toFixed(2)}%`),
+    "ops/sec"
   );
   for (const [name, ratio] of comparisons) {
-    console.log(`  ${ratio}x faster than ${name}`);
+    console.log(`  ${green(ratio)}x faster than ${blue(name)}`);
   }
 };

@@ -48,14 +48,13 @@
     "trailingComma": "es5",
     "useTabs": false
   },
-  "sometimes": "i hate semantic-release",
   "devDependencies": {
     "@commitlint/cli": "^17.6.3",
     "@commitlint/config-conventional": "^17.6.3",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
     "@types/jest": "^29.5.2",
-    "@types/node": "^20.2.5",
+    "@types/node": "^20.3.1",
     "esbuild": "^0.17.19",
     "husky": "^8.0.3",
     "jest": "^29.5.0",
