@@ -1,16 +1,17 @@
 # benchmate
 
-Benchmate is a super-small but mighty benchmarking library for JavaScript.
+Benchmate is a small but mighty benchmarking library for JavaScript.
 
-- iteration count driven
-- supports (and recommends) batching iterations to offset the overhead errors
-- works with both `process.hrtime` and `performance.now`
-- sensible defaults for batch size and warmup iterations
-- pre-task and post-task hooks
-- async support
-- metrics: ops/sec, min/max/avg (ns), percentiles
+- Comes with sensible defaults and tries to figure out the best parameters on its own.
+- Supports duration and iteration count targeting.
+- Works with both `process.hrtime` and `performance.now`.
+- Has hooks for `setup` and `teardown` (before and after the entire test, not each execution).
+- Has `async` support, but you really shouldn't benchmark async functions.
+- Returns the metrics and prints the output nicely (optional).
 
-> This is very much WIP, if you're looking for something stable I'd probably recommend [mitata](https://github.com/evanwashere/mitata).
+## Demo
+
+[![benchmate on asciicast](https://asciinema.org/a/TCvVvn8qELEeQpflETsnoj64C.svg)](https://asciinema.org/a/TCvVvn8qELEeQpflETsnoj64C)
 
 ## Installation
 
@@ -24,7 +25,7 @@ yarn add -D benchmate
 
 ## Usage
 
-Notes:
+**Notes:**
 
 - **Don't disable batching** if you want accurate measurements. Metrics like `min`, `max`, and percentiles will me meaningless, as you get a single measurement.
 - **Don't expect accurate timings for fast async functions**, but you can compare their performance.
@@ -46,7 +47,7 @@ const bench = new Bench({
   },
   method: "auto", // "auto" | "hrtime" | "performance.now" - measurement method, defaults to best available
   testSleepDuration: 0, // how long to sleep between tasks (ms)
-  quiet: false, // don't print anything
+  quiet: false, // don't print anything, defaults to `true` in browsers, `false` in Node
   setup: () => Promise<void> | void, // function to run before each test
   teardown: () => Promise<void> | void, // function to run after each test
 });
@@ -79,6 +80,7 @@ await bench.run();
 //       average: number;
 //       max: number;
 //       min: number;
+//       margin: number; // percentage
 //     };
 ```
 
