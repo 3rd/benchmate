@@ -9,6 +9,17 @@ const filterOutliers = (data: number[]) => {
   return data.filter((item) => item >= lowerLimit && item <= upperLimit);
 };
 
+const getVariance = (data: number[], average: number) => {
+  const squaredDiffs = data.map((item) => Math.pow(item - average, 2));
+  return squaredDiffs.reduce((a, b) => a + b, 0) / squaredDiffs.length;
+};
+
+const getMarginPercentage = (data: number[], average: number) => {
+  const varValue = getVariance(data, average);
+  const stdDev = Math.sqrt(varValue);
+  return (stdDev / average) * 100;
+};
+
 export const computeTaskStats = (timings: Float64Array, batchSizes: Uint32Array) => {
   if (timings.length !== batchSizes.length) throw new Error("timings and batchSizes must have the same length");
 
@@ -34,6 +45,8 @@ export const computeTaskStats = (timings: Float64Array, batchSizes: Uint32Array)
   const maxOpsPerSecond = Math.max(...opsPerSecond);
   const averageOpsPerSecond = opsPerSecond.reduce((a, b) => a + b, 0) / opsPerSecond.length;
 
+  const marginOpsPerSecond = getMarginPercentage(opsPerSecond, averageOpsPerSecond);
+
   return {
     samples: samples,
     batches: batches,
@@ -50,6 +63,7 @@ export const computeTaskStats = (timings: Float64Array, batchSizes: Uint32Array)
       min: minOpsPerSecond,
       max: maxOpsPerSecond,
       average: averageOpsPerSecond,
+      margin: marginOpsPerSecond,
     },
   };
 };
