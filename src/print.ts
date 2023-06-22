@@ -39,7 +39,7 @@ const formatIterations = (opsPerSecond: number): string => {
     parts.unshift(value % 1000);
     value = Math.floor(value / 1000);
   }
-  return parts.join("_");
+  return parts.map((part, index) => (index === 0 ? part : part.toString().padStart(3, "0"))).join(",");
 };
 
 export const printResult = (result: BenchmarkResult) => {
