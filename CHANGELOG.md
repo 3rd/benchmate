@@ -1,3 +1,14 @@
+# [1.6.0](https://github.com/3rd/benchmate/compare/v1.5.0...v1.6.0) (2023-06-22)
+
+### Bug Fixes
+
+- pad when formatting iterations ([3bc736d](https://github.com/3rd/benchmate/commit/3bc736d2747eb634dd625bea0d6d43a55f60c707))
+
+### Features
+
+- add custom metrics summary table and improve output ([8b7b9e1](https://github.com/3rd/benchmate/commit/8b7b9e1208631a0a5e1d7944aab5145fe86638cf))
+- default to quiet in browser envs ([28ee313](https://github.com/3rd/benchmate/commit/28ee31313f87d3a30caa247683e3b3f83a248ddd))
+
 # [1.5.0](https://github.com/3rd/benchmate/compare/v1.4.0...v1.5.0) (2023-06-22)
 
 ### Features
