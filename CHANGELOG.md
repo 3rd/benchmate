@@ -1,3 +1,9 @@
+# [1.4.0](https://github.com/3rd/benchmate/compare/v1.3.0...v1.4.0) (2023-06-22)
+
+### Features
+
+- add margin and ratio comparison ([a4332ff](https://github.com/3rd/benchmate/commit/a4332ff3466caf5693200dc2a4ab3e0542b0d56f))
+
 # [1.3.0](https://github.com/3rd/benchmate/compare/v1.2.0...v1.3.0) (2023-06-20)
 
 ### Features
