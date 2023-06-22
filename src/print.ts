@@ -48,28 +48,28 @@ export const printResult = (result: BenchmarkResult) => {
     `completed`,
     yellow(formatIterations(result.stats.samples)),
     "iterations in",
-    yellow(formatMS(result.stats.time.total))
+    cyan(formatMS(result.stats.time.total))
   );
   console.log(
     "  ops/sec:",
-    cyan(formatIterations(result.stats.opsPerSecond.average)),
-    yellow(`±${result.stats.opsPerSecond.margin.toFixed(2)}%`)
+    yellow(formatIterations(result.stats.opsPerSecond.average)),
+    magenta(`±${result.stats.opsPerSecond.margin.toFixed(2)}%`)
   );
   console.log(
     "  avg:",
-    yellow(formatMS(result.stats.time.average)),
+    cyan(formatMS(result.stats.time.average)),
     "min:",
-    yellow(formatMS(result.stats.time.min)),
+    cyan(formatMS(result.stats.time.min)),
     "max:",
-    yellow(formatMS(result.stats.time.max))
+    cyan(formatMS(result.stats.time.max))
   );
   console.log(
     "  p50:",
-    yellow(formatMS(result.stats.time.percentile50)),
+    cyan(formatMS(result.stats.time.percentile50)),
     "p90:",
-    yellow(formatMS(result.stats.time.percentile90)),
+    cyan(formatMS(result.stats.time.percentile90)),
     "p95:",
-    yellow(formatMS(result.stats.time.percentile95))
+    cyan(formatMS(result.stats.time.percentile95))
   );
   console.log("");
 };
@@ -80,20 +80,70 @@ export const printResults = (results: BenchmarkResult[]) => {
   // stats table
   const table = results.reduce((acc, result) => {
     acc[result.name] = {
-      "ops/sec": result.stats.opsPerSecond.average,
-      margin: `±${result.stats.opsPerSecond.margin.toFixed(2)}%`,
-      avg: formatMS(result.stats.time.average),
-      min: formatMS(result.stats.time.min),
-      max: formatMS(result.stats.time.max),
-      p50: formatMS(result.stats.time.percentile50),
-      p90: formatMS(result.stats.time.percentile90),
-      p95: formatMS(result.stats.time.percentile95),
-      samples: result.stats.samples,
-      time: formatMS(result.stats.time.total),
+      Summary: {
+        raw: result.name,
+        formatted: bold(blue(result.name)),
+      },
+      "ops/sec": {
+        raw: formatIterations(result.stats.opsPerSecond.average),
+        formatted: yellow(formatIterations(result.stats.opsPerSecond.average)),
+      },
+      margin: {
+        raw: `±${result.stats.opsPerSecond.margin.toFixed(2)}%`,
+        formatted: magenta(`±${result.stats.opsPerSecond.margin.toFixed(2)}%`),
+      },
+      avg: {
+        raw: formatMS(result.stats.time.average),
+        formatted: cyan(formatMS(result.stats.time.average)),
+      },
+      min: {
+        raw: formatMS(result.stats.time.min),
+        formatted: cyan(formatMS(result.stats.time.min)),
+      },
+      max: {
+        raw: formatMS(result.stats.time.max),
+        formatted: cyan(formatMS(result.stats.time.max)),
+      },
+      p50: {
+        raw: formatMS(result.stats.time.percentile50),
+        formatted: cyan(formatMS(result.stats.time.percentile50)),
+      },
+      p90: {
+        raw: formatMS(result.stats.time.percentile90),
+        formatted: cyan(formatMS(result.stats.time.percentile90)),
+      },
+      p95: {
+        raw: formatMS(result.stats.time.percentile95),
+        formatted: cyan(formatMS(result.stats.time.percentile95)),
+      },
+      samples: {
+        raw: formatIterations(result.stats.samples),
+        formatted: yellow(formatIterations(result.stats.samples)),
+      },
+      time: {
+        raw: formatMS(result.stats.time.total),
+        formatted: cyan(formatMS(result.stats.time.total)),
+      },
     };
     return acc;
-  }, {} as Record<string, Record<string, string | number>>);
-  console.table(table);
+  }, {} as Record<string, Record<string, { raw: string; formatted: string }>>);
+
+  // columns and header
+  const columns = Object.keys(table).reduce((acc, name) => {
+    for (const [key, value] of Object.entries(table[name])) {
+      if (acc[key] === undefined) acc[key] = key.length;
+      acc[key] = Math.max(acc[key], value.raw.length);
+    }
+    return acc;
+  }, {} as Record<string, number>);
+  let headerLength = 0;
+  const header = Object.keys(columns)
+    .map((key, index) => {
+      headerLength += columns[key] + 2;
+      if (index === 0) return key.padEnd(columns[key] + 2);
+      return key.padStart(columns[key] + 2);
+    })
+    .join("");
 
   // comparisons
   const baseline = results[0].stats.opsPerSecond.average;
@@ -102,13 +152,36 @@ export const printResults = (results: BenchmarkResult[]) => {
     const ratio = (baseline / results[i].stats.opsPerSecond.average).toFixed(2);
     comparisons.push([results[i].name, Number(ratio)]);
   }
+
+  // print header
+  console.log(gray("-".repeat(headerLength)));
+  console.log(header);
+  console.log(gray("-".repeat(headerLength)));
+
+  // print metrics table
+  for (const name of Object.keys(table)) {
+    const row = Object.keys(columns)
+      .map((key, index) => {
+        const item = table[name][key];
+        const padDifference = columns[key] - item.raw.length + 2;
+        const padding = " ".repeat(padDifference);
+        if (index === 0) return item.formatted + padding;
+        return padding + item.formatted;
+      })
+      .join("");
+    console.log(row);
+  }
+  console.log(gray("-".repeat(headerLength)));
+  console.log("");
+
+  // print comparisons
   console.log(
-    `Fastest is ${bold(cyan(results[0].name))} with`,
-    cyan(formatIterations(baseline)),
-    yellow(`±${results[0].stats.opsPerSecond.margin.toFixed(2)}%`),
+    `Fastest is ${bold(blue(results[0].name))} with`,
+    yellow(formatIterations(baseline)),
+    magenta(`±${results[0].stats.opsPerSecond.margin.toFixed(2)}%`),
     "ops/sec"
   );
   for (const [name, ratio] of comparisons) {
-    console.log(`  ${green(ratio)}x faster than ${blue(name)}`);
+    console.log(`  ${green(ratio)}${gray("x")} faster than ${blue(name)}`);
   }
 };
