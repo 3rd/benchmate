@@ -1,3 +1,9 @@
+# [1.7.0](https://github.com/3rd/benchmate/compare/v1.6.0...v1.7.0) (2023-06-25)
+
+### Features
+
+- use simple-statistics for stats computations ([ecd741c](https://github.com/3rd/benchmate/commit/ecd741c9388b9df9872f8babe9cf3166c5fed9ab))
+
 # [1.6.0](https://github.com/3rd/benchmate/compare/v1.5.0...v1.6.0) (2023-06-22)
 
 ### Bug Fixes
