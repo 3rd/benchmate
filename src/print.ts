@@ -56,8 +56,10 @@ export const printResult = (result: BenchmarkResult) => {
     magenta(`±${result.stats.opsPerSecond.margin.toFixed(2)}%`)
   );
   console.log(
-    "  avg:",
+    "  average:",
     cyan(formatMS(result.stats.time.average)),
+    "median:",
+    cyan(formatMS(result.stats.time.median)),
     "min:",
     cyan(formatMS(result.stats.time.min)),
     "max:",
@@ -92,7 +94,7 @@ export const printResults = (results: BenchmarkResult[]) => {
         raw: `±${result.stats.opsPerSecond.margin.toFixed(2)}%`,
         formatted: magenta(`±${result.stats.opsPerSecond.margin.toFixed(2)}%`),
       },
-      avg: {
+      average: {
         raw: formatMS(result.stats.time.average),
         formatted: cyan(formatMS(result.stats.time.average)),
       },

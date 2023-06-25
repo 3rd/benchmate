@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+dependencies:
+  simple-statistics:
+    specifier: ^7.8.3
+    version: 7.8.3
+
 devDependencies:
   "@commitlint/cli":
     specifier: ^17.6.3
@@ -4912,6 +4917,11 @@ packages:
       figures: 2.0.0
       pkg-conf: 2.1.0
     dev: true
+
+  /simple-statistics@7.8.3:
+    resolution:
+      { integrity: sha512-JFvMY00t6SBGtwMuJ+nqgsx9ylkMiJ5JlK9bkj8AdvniIe5615wWQYkKHXe84XtSuc40G/tlrPu0A5/NlJvv8A== }
+    dev: false
 
   /sisteransi@1.0.5:
     resolution:
