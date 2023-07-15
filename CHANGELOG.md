@@ -1,3 +1,9 @@
+## [1.7.1](https://github.com/3rd/benchmate/compare/v1.7.0...v1.7.1) (2023-07-15)
+
+### Bug Fixes
+
+- lint, update deps, use pnpm's run_install ([9d33a29](https://github.com/3rd/benchmate/commit/9d33a298a4bcfd0aae907570b94c5b8b9a5e5e9a))
+
 # [1.7.0](https://github.com/3rd/benchmate/compare/v1.6.0...v1.7.0) (2023-06-25)
 
 ### Features
