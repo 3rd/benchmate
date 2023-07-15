@@ -20,7 +20,7 @@ const getMarginPercentage = (data: number[], mean: number) => {
   return (standardDeviation / mean) * 100;
 };
 
-export const computeTaskStats = (timings: Float64Array, batchSizes: Uint32Array) => {
+const computeTaskStats = (timings: Float64Array, batchSizes: Uint32Array) => {
   if (timings.length !== batchSizes.length) throw new Error("timings and batchSizes must have the same length");
 
   const totalBatches = timings.length;
@@ -68,3 +68,5 @@ export const computeTaskStats = (timings: Float64Array, batchSizes: Uint32Array)
     },
   };
 };
+
+export { computeTaskStats };

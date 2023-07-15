@@ -1,7 +1,9 @@
-export const global = globalThis as unknown as {
+const global = globalThis as unknown as {
   performance: Performance;
   process?: {
     hrtime: { bigint: () => bigint };
-    env: { [key: string]: string | undefined };
+    env: Record<string, string | undefined>;
   };
 };
+
+export { global };

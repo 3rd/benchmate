@@ -9,8 +9,8 @@ type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends Record<string, unknown> ? DeepPartial<T[P]> : T[P];
 };
 
-type IterationOptions = { iterations: number } | { iterations: "auto"; time: number };
-type InternalBenchmarkOptions = {
+type IterationOptions = { iterations: "auto"; time: number } | { iterations: number };
+type InternalBenchmarkOptions = IterationOptions & {
   debug: boolean;
   batching: { enabled: boolean; size: number | "auto" };
   warmup: { enabled: boolean; iterations: number | "auto" };
@@ -19,18 +19,18 @@ type InternalBenchmarkOptions = {
   quiet: boolean;
   setup?: () => Promise<void> | void;
   teardown?: () => Promise<void> | void;
-} & IterationOptions;
+};
 
-export type BenchmarkOptions = DeepPartial<Omit<InternalBenchmarkOptions, keyof IterationOptions>> &
-  ({ iterations?: number } | { iterations: "auto"; time?: number } | { time?: number });
+type BenchmarkOptions = DeepPartial<Omit<InternalBenchmarkOptions, keyof IterationOptions>> &
+  ({ iterations: "auto"; time?: number } | { iterations?: number } | { time?: number });
 
-export type Task = {
+type Task = {
   name: string;
   fn: () => Promise<void> | void;
   compiledFn: (iterations: number, now: () => number) => Promise<number> | number;
 };
 
-export type BenchmarkResult = {
+type BenchmarkResult = {
   name: string;
   stats: ReturnType<typeof computeTaskStats>;
 };
@@ -94,11 +94,8 @@ class Bench {
       let elapsed = 0;
       while (elapsed < measurementTarget) {
         elapsed = await this.measureTaskBatch(task, iterations);
-        if (elapsed < measurementTarget / 2) {
-          iterations *= 2;
-        } else {
-          break;
-        }
+        if (elapsed < measurementTarget / 2) iterations *= 2;
+        else break;
       }
       const targetIterations = Math.floor((this.options.time / elapsed) * iterations);
       this.debug(`[${task.name}] Determined that ${targetIterations} should run in ~${this.options.time}ms`);
@@ -114,8 +111,8 @@ class Bench {
     await this.measureTaskBatch(task, warmupIterations);
   }
 
-  private measureTaskBatch = async (task: Task, size: number = 1): Promise<number> => {
-    return await task.compiledFn(Math.floor(size), this.now);
+  private measureTaskBatch = async (task: Task, size = 1): Promise<number> => {
+    return task.compiledFn(Math.floor(size), this.now);
   };
 
   private async runTask(task: Task): Promise<BenchmarkResult> {
@@ -125,14 +122,13 @@ class Bench {
     if (this.options.batching.enabled) {
       if (this.options.batching.size === "auto") {
         if (taskIterations < 1000) batchSize = taskIterations / 25;
-        else if (taskIterations < 10000) batchSize = taskIterations / 50;
-        else if (taskIterations < 100000) batchSize = taskIterations / 100;
-        else if (taskIterations < 1000000) batchSize = taskIterations / 200;
+        else if (taskIterations < 10_000) batchSize = taskIterations / 50;
+        else if (taskIterations < 100_000) batchSize = taskIterations / 100;
+        else if (taskIterations < 1_000_000) batchSize = taskIterations / 200;
         else batchSize = taskIterations / 500;
-      } else {
-        batchSize = this.options.batching.size;
-      }
+      } else batchSize = this.options.batching.size;
     }
+
     batchSize = Math.max(1, Math.floor(batchSize));
     const batchCount = this.options.batching.enabled ? Math.ceil(taskIterations / batchSize) : 1;
     const batchTimings = new Float64Array(batchCount);
@@ -184,6 +180,7 @@ class Bench {
     if (isAsync) {
       console.warn(`Warning: Using asynchronous functions in task '${task.name}' will affect measurement accuracy.`);
     }
+
     this.tasks.push(task);
   }
 
@@ -206,4 +203,5 @@ class Bench {
   }
 }
 
+export type { BenchmarkOptions, BenchmarkResult, Task };
 export { Bench };

@@ -1,4 +1,4 @@
-export const compileTaskFunction = (fn: () => Promise<void> | void) => {
+const compileTaskFunction = (fn: () => Promise<void> | void) => {
   // return async (iterations: number, now: () => number) => {
   //   let remainingIterations = iterations;
   //   const start = now();
@@ -20,3 +20,5 @@ export const compileTaskFunction = (fn: () => Promise<void> | void) => {
   // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
   return new Function(`return (function(fn) { return ${body.join("\n")} });`)()(fn);
 };
+
+export { compileTaskFunction };

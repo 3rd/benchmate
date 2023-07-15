@@ -4,31 +4,27 @@ import { global } from "./global";
 // https://no-color.org/
 const noColor = Boolean(global.process?.env?.NO_COLOR);
 
-const createDecorator = (ansiCode: string) => (text: string | number) => {
-  return `\x1b[${ansiCode}m${text}\x1b[0m`;
+const createDecorator = (ansiCode: string) => (text: number | string) => {
+  return `\u001b[${ansiCode}m${text}\u001b[0m`;
 };
-const colorize = (colorCode: string) => (text: string | number) => {
-  return noColor ? text.toString() : `\x1b[${colorCode}m${text}\x1b[0m`;
+const colorize = (colorCode: string) => (text: number | string) => {
+  return noColor ? text.toString() : `\u001b[${colorCode}m${text}\u001b[0m`;
 };
 
 const bold = createDecorator("1");
-const underline = colorize("4");
 
-const black = colorize("30");
-const red = colorize("31");
 const green = colorize("32");
 const yellow = colorize("33");
 const blue = colorize("34");
 const magenta = colorize("35");
 const cyan = colorize("36");
-const white = colorize("37");
 const gray = colorize("90");
 
 const formatMS = (ms: number, decimalPlaces = 2): string => {
   const ns = ms * 1_000_000;
   if (ns < 1000) return `${ns.toFixed(decimalPlaces)}ns`;
   if (ns < 1_000_000) return `${(ns / 1000).toFixed(decimalPlaces)}µs`;
-  if (ms < 1_000) return `${ms.toFixed(decimalPlaces)}ms`;
+  if (ms < 1000) return `${ms.toFixed(decimalPlaces)}ms`;
   return `${(ms / 1000).toFixed(decimalPlaces)}s`;
 };
 
@@ -42,7 +38,7 @@ const formatIterations = (opsPerSecond: number): string => {
   return parts.map((part, index) => (index === 0 ? part : part.toString().padStart(3, "0"))).join(",");
 };
 
-export const printResult = (result: BenchmarkResult) => {
+const printResult = (result: BenchmarkResult) => {
   console.log(
     bold(blue(result.name)),
     `completed`,
@@ -76,11 +72,11 @@ export const printResult = (result: BenchmarkResult) => {
   console.log("");
 };
 
-export const printResults = (results: BenchmarkResult[]) => {
+const printResults = (results: BenchmarkResult[]) => {
   results.sort((a, b) => b.stats.opsPerSecond.average - a.stats.opsPerSecond.average);
 
   // stats table
-  const table = results.reduce((acc, result) => {
+  const table = results.reduce<Record<string, Record<string, { raw: string; formatted: string }>>>((acc, result) => {
     acc[result.name] = {
       Summary: {
         raw: result.name,
@@ -128,16 +124,16 @@ export const printResults = (results: BenchmarkResult[]) => {
       },
     };
     return acc;
-  }, {} as Record<string, Record<string, { raw: string; formatted: string }>>);
+  }, {});
 
   // columns and header
-  const columns = Object.keys(table).reduce((acc, name) => {
+  const columns = Object.keys(table).reduce<Record<string, number>>((acc, name) => {
     for (const [key, value] of Object.entries(table[name])) {
       if (acc[key] === undefined) acc[key] = key.length;
       acc[key] = Math.max(acc[key], value.raw.length);
     }
     return acc;
-  }, {} as Record<string, number>);
+  }, {});
   let headerLength = 0;
   const header = Object.keys(columns)
     .map((key, index) => {
@@ -183,7 +179,7 @@ export const printResults = (results: BenchmarkResult[]) => {
     magenta(`±${results[0].stats.opsPerSecond.margin.toFixed(2)}%`),
     "ops/sec"
   );
-  for (const [name, ratio] of comparisons) {
-    console.log(`  ${green(ratio)}${gray("x")} faster than ${blue(name)}`);
-  }
+  for (const [name, ratio] of comparisons) console.log(`  ${green(ratio)}${gray("x")} faster than ${blue(name)}`);
 };
+
+export { printResult, printResults };
