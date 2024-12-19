@@ -1,3 +1,9 @@
+# [1.8.0](https://github.com/3rd/benchmate/compare/v1.7.1...v1.8.0) (2024-12-19)
+
+### Features
+
+- add benchmark events ([e27c031](https://github.com/3rd/benchmate/commit/e27c03177582dfac956569ed6bfc348e8cadafeb))
+
 ## [1.7.1](https://github.com/3rd/benchmate/compare/v1.7.0...v1.7.1) (2023-07-15)
 
 ### Bug Fixes
