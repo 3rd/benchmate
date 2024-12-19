@@ -12,8 +12,8 @@ type DeepPartial<T> = {
 type IterationOptions = { iterations: "auto"; time: number } | { iterations: number };
 type InternalBenchmarkOptions = IterationOptions & {
   debug: boolean;
-  batching: { enabled: boolean; size: number | "auto" };
-  warmup: { enabled: boolean; iterations: number | "auto" };
+  batching: { enabled: boolean; size: "auto" | number };
+  warmup: { enabled: boolean; iterations: "auto" | number };
   method: "auto" | "hrtime" | "performance.now";
   testSleepDuration: number;
   quiet: boolean;
@@ -35,6 +35,24 @@ type BenchmarkResult = {
   stats: ReturnType<typeof computeTaskStats>;
 };
 
+type BenchEvents = {
+  benchmarkStart: { tasks: string[] };
+  taskStart: { task: string };
+  taskWarmupStart: { task: string; iterations: number };
+  taskWarmupEnd: { task: string };
+  setup: { task: string };
+  teardown: { task: string };
+  taskComplete: BenchmarkResult;
+  benchmarkEnd: { results: BenchmarkResult[] };
+  progress: {
+    task: string;
+    tasksCompleted: number;
+    tasksTotal: number;
+    iterationsCompleted: number;
+    iterationsTotal: number;
+  };
+};
+
 const defaultOptions = {
   debug: false,
   iterations: "auto",
@@ -47,9 +65,13 @@ const defaultOptions = {
 } as const;
 
 class Bench {
-  tasks: Task[] = [];
-  options: InternalBenchmarkOptions = defaultOptions;
-  now: () => number;
+  private tasks: Task[] = [];
+  private options: InternalBenchmarkOptions = defaultOptions;
+  private now: () => number;
+
+  private eventListeners: {
+    [K in keyof BenchEvents]?: ((data: BenchEvents[K]) => void)[];
+  } = {};
 
   constructor(options?: BenchmarkOptions) {
     if (options) {
@@ -81,8 +103,24 @@ class Bench {
     this.now = getNowProvider(this.options.method);
   }
 
+  on<K extends keyof BenchEvents>(event: K, handler: (data: BenchEvents[K]) => void) {
+    if (!this.eventListeners[event]) {
+      this.eventListeners[event] = [];
+    }
+    this.eventListeners[event]!.push(handler);
+  }
+
+  private emit<K extends keyof BenchEvents>(event: K, data: BenchEvents[K]) {
+    const handlers = this.eventListeners[event];
+    if (handlers) {
+      for (const handler of handlers) {
+        handler(data);
+      }
+    }
+  }
+
   private debug(...args: unknown[]) {
-    if (!this.options.debug) return;
+    if (!this.options.debug || this.options.quiet) return;
     console.log(...args);
   }
 
@@ -105,17 +143,22 @@ class Bench {
   }
 
   private async warmup(task: Task, taskIterations: number) {
+    if (!this.options.warmup.enabled) return;
     const warmupIterations =
       this.options.warmup.iterations === "auto" ? Math.floor(taskIterations / 10) : this.options.warmup.iterations;
     this.debug(`[${task.name}] Warming up for ${warmupIterations} iterations`);
+    this.emit("taskWarmupStart", { task: task.name, iterations: warmupIterations });
     await this.measureTaskBatch(task, warmupIterations);
+    this.emit("taskWarmupEnd", { task: task.name });
   }
 
   private measureTaskBatch = async (task: Task, size = 1): Promise<number> => {
     return task.compiledFn(Math.floor(size), this.now);
   };
 
-  private async runTask(task: Task): Promise<BenchmarkResult> {
+  private async runTask(task: Task, tasksCompletedBeforeThis: number, tasksTotal: number): Promise<BenchmarkResult> {
+    this.emit("taskStart", { task: task.name });
+
     const taskIterations = await this.computeTaskIterationsForDuration(task);
 
     let batchSize = taskIterations;
@@ -136,17 +179,23 @@ class Bench {
 
     this.debug(`[${task.name}] Preparing to run ${taskIterations} iterations in ${batchCount} batches of ${batchSize}`);
 
-    if (this.options.warmup) await this.warmup(task, taskIterations);
+    await this.warmup(task, taskIterations);
 
     if (this.options.setup) {
       this.debug(`[${task.name}] Executing setup() hook`);
+      this.emit("setup", { task: task.name });
       await this.options.setup();
     }
 
     this.debug(`[${task.name}] Starting benchmark...`);
 
-    const start = this.now();
     let iterationIndex = 0;
+
+    // throttle emitted progress events
+    const start = this.now();
+    const minProgressEmitInterval = 1000 / 30;
+    let lastProgressEmitTimestamp = start;
+
     while (iterationIndex < taskIterations) {
       const currentBatchIndex = this.options.batching.enabled ? Math.floor(iterationIndex / batchSize) : 0;
       const currentBatchSize = this.options.batching.enabled
@@ -158,6 +207,19 @@ class Bench {
       batchSizes[currentBatchIndex] = currentBatchSize;
 
       iterationIndex += currentBatchSize;
+
+      // emit progress
+      const nowTime = this.now();
+      if (nowTime - lastProgressEmitTimestamp >= minProgressEmitInterval) {
+        this.emit("progress", {
+          task: task.name,
+          tasksCompleted: tasksCompletedBeforeThis,
+          tasksTotal,
+          iterationsCompleted: iterationIndex,
+          iterationsTotal: taskIterations,
+        });
+        lastProgressEmitTimestamp = nowTime;
+      }
     }
     const end = this.now();
 
@@ -165,11 +227,24 @@ class Bench {
 
     if (this.options.teardown) {
       this.debug(`[${task.name}] Executing teardown() hook`);
+      this.emit("teardown", { task: task.name });
       await this.options.teardown();
     }
 
     const stats = computeTaskStats(batchTimings, batchSizes);
-    return { name: task.name, stats };
+    const result = { name: task.name, stats };
+
+    // final progress emit
+    this.emit("progress", {
+      task: task.name,
+      tasksCompleted: tasksCompletedBeforeThis,
+      tasksTotal,
+      iterationsCompleted: iterationIndex,
+      iterationsTotal: taskIterations,
+    });
+
+    this.emit("taskComplete", result);
+    return result;
   }
 
   add(name: string, fn: () => Promise<void> | void) {
@@ -177,7 +252,7 @@ class Bench {
     const compiledFn = compileTaskFunction(fn);
     const task: Task = { name, fn, compiledFn };
 
-    if (isAsync) {
+    if (isAsync && !this.options.quiet) {
       console.warn(`Warning: Using asynchronous functions in task '${task.name}' will affect measurement accuracy.`);
     }
 
@@ -187,18 +262,25 @@ class Bench {
   async run(): Promise<BenchmarkResult[]> {
     const results: BenchmarkResult[] = [];
 
+    this.emit("benchmarkStart", { tasks: this.tasks.map((t) => t.name) });
     this.debug(`Starting to benchmark ${this.tasks.length} tasks`);
     this.debug(`Configuration: ${JSON.stringify(this.options, null, 2)}`);
 
+    const tasksTotal = this.tasks.length;
+    let tasksCompleted = 0;
+
     for (const task of this.tasks) {
-      const result = await this.runTask(task);
+      const result = await this.runTask(task, tasksCompleted, tasksTotal);
       results.push(result);
+      tasksCompleted++;
+
       if (!this.options.quiet) printResult(result);
       await sleep(this.options.testSleepDuration);
     }
 
     if (!this.options.quiet) printResults(results);
 
+    this.emit("benchmarkEnd", { results });
     return results;
   }
 }

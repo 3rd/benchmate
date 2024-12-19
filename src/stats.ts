@@ -1,8 +1,8 @@
 import {
-  sum as simpleStatisticsSum,
   mean as simpleStatisticsMean,
   median as simpleStatisticsMedian,
   standardDeviation as simpleStatisticsStandardDeviation,
+  sum as simpleStatisticsSum,
 } from "simple-statistics";
 
 // https://en.wikipedia.org/wiki/Interquartile_range

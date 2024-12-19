@@ -29,7 +29,7 @@
     "build": "npm run clean && node src/scripts/build.mjs && tsc -p tsconfig.build.json",
     "test": "jest",
     "tsc": "tsc",
-    "prepare": "husky install",
+    "prepare": "husky",
     "prepublishOnly": "pnpm run build && pnpm run tsc && pnpm run test",
     "clean": "rm -rf dist"
   },
@@ -49,22 +49,22 @@
     "useTabs": false
   },
   "devDependencies": {
-    "@commitlint/cli": "^17.6.6",
-    "@commitlint/config-conventional": "^17.6.6",
+    "@commitlint/cli": "^19.6.1",
+    "@commitlint/config-conventional": "^19.6.0",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
-    "@types/jest": "^29.5.3",
-    "@types/node": "^20.4.2",
-    "esbuild": "^0.18.13",
-    "husky": "^8.0.3",
-    "jest": "^29.6.1",
-    "lint-staged": "^13.2.3",
-    "prettier": "^3.0.0",
-    "semantic-release": "^21.0.7",
-    "ts-jest": "^29.1.1",
-    "typescript": "^5.1.6"
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.10.2",
+    "esbuild": "^0.24.0",
+    "husky": "^9.1.7",
+    "jest": "^29.7.0",
+    "lint-staged": "^15.2.11",
+    "prettier": "^3.4.2",
+    "semantic-release": "^24.2.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.7.2"
   },
   "dependencies": {
-    "simple-statistics": "^7.8.3"
+    "simple-statistics": "^7.8.7"
   }
 }
