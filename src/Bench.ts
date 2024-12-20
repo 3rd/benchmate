@@ -17,7 +17,7 @@ type InternalBenchmarkOptions = IterationOptions & {
   method: "auto" | "hrtime" | "performance.now";
   testSleepDuration: number;
   quiet: boolean;
-  setup?: () => Promise<void> | void;
+  setup?: (task: Task) => Promise<void> | void;
   teardown?: () => Promise<void> | void;
 };
 
@@ -192,7 +192,7 @@ class Bench {
     if (this.options.setup) {
       this.debug(`[${task.name}] Executing setup() hook`);
       this.emit("setup", { task: task.name });
-      await this.options.setup();
+      await this.options.setup(task);
     }
 
     this.debug(`[${task.name}] Starting benchmark...`);
