@@ -1,3 +1,9 @@
+# [1.10.0](https://github.com/3rd/benchmate/compare/v1.9.0...v1.10.0) (2024-12-20)
+
+### Features
+
+- emit elapsed time on progress ([c00a107](https://github.com/3rd/benchmate/commit/c00a107b2b47fe13d05144c2adc6fb43b0a086e0))
+
 # [1.9.0](https://github.com/3rd/benchmate/compare/v1.8.0...v1.9.0) (2024-12-20)
 
 ### Features
