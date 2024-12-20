@@ -1,3 +1,9 @@
+# [1.11.0](https://github.com/3rd/benchmate/compare/v1.10.0...v1.11.0) (2024-12-20)
+
+### Features
+
+- pass task to setup hook ([eb8023b](https://github.com/3rd/benchmate/commit/eb8023bb217c32498b971eb29a4ece4a12be2d0f))
+
 # [1.10.0](https://github.com/3rd/benchmate/compare/v1.9.0...v1.10.0) (2024-12-20)
 
 ### Features
