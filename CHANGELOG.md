@@ -1,3 +1,9 @@
+# [1.9.0](https://github.com/3rd/benchmate/compare/v1.8.0...v1.9.0) (2024-12-20)
+
+### Features
+
+- add support for unsubscribing from events ([c68dd87](https://github.com/3rd/benchmate/commit/c68dd87921d7362d5693f5d1301d481b02a5ad1b))
+
 # [1.8.0](https://github.com/3rd/benchmate/compare/v1.7.1...v1.8.0) (2024-12-19)
 
 ### Features
