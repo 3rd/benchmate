@@ -110,6 +110,13 @@ class Bench {
     this.eventListeners[event]!.push(handler);
   }
 
+  off<K extends keyof BenchEvents>(event: K, handler: (data: BenchEvents[K]) => void) {
+    const handlers = this.eventListeners[event];
+    if (!handlers) return;
+    const updatedHandlers = handlers.filter((h) => h !== handler);
+    this.eventListeners[event] = updatedHandlers as typeof handlers;
+  }
+
   private emit<K extends keyof BenchEvents>(event: K, data: BenchEvents[K]) {
     const handlers = this.eventListeners[event];
     if (handlers) {
