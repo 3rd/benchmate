@@ -50,6 +50,7 @@ type BenchEvents = {
     tasksTotal: number;
     iterationsCompleted: number;
     iterationsTotal: number;
+    elapsedTime: number;
   };
 };
 
@@ -224,6 +225,7 @@ class Bench {
           tasksTotal,
           iterationsCompleted: iterationIndex,
           iterationsTotal: taskIterations,
+          elapsedTime: this.now() - start,
         });
         lastProgressEmitTimestamp = nowTime;
       }
@@ -248,6 +250,7 @@ class Bench {
       tasksTotal,
       iterationsCompleted: iterationIndex,
       iterationsTotal: taskIterations,
+      elapsedTime: this.now() - start,
     });
 
     this.emit("taskComplete", result);
