@@ -134,14 +134,21 @@ class Bench {
 
   private async computeTaskIterationsForDuration(task: Task): Promise<number> {
     if (this.options.iterations === "auto") {
-      const measurementTarget = 500;
+      const measurementTarget = 350;
       this.debug(`[${task.name}] Computing how many iterations should run in ${measurementTarget}ms`);
       let iterations = 1;
       let elapsed = 0;
       while (elapsed < measurementTarget) {
-        elapsed = await this.measureTaskBatch(task, iterations);
-        if (elapsed < measurementTarget / 2) iterations *= 2;
-        else break;
+        const attempts = 3;
+        let roundTotal = 0;
+        for (let i = 0; i < attempts; i++) {
+          const measured = await this.measureTaskBatch(task, iterations);
+          if (i > 0) roundTotal += measured;
+        }
+        elapsed = roundTotal / (attempts - 1);
+        const iterationsPerMs = iterations / (elapsed || 1);
+        const neededIterations = Math.ceil(iterationsPerMs * measurementTarget);
+        iterations = Math.max(iterations + 1, Math.ceil(neededIterations * 1.1));
       }
       const targetIterations = Math.floor((this.options.time / elapsed) * iterations);
       this.debug(`[${task.name}] Determined that ${targetIterations} should run in ~${this.options.time}ms`);
@@ -163,24 +170,23 @@ class Bench {
   private measureTaskBatch = async (task: Task, size = 1): Promise<number> => {
     return task.compiledFn(Math.floor(size), this.now);
   };
+  private getBatchSize(totalIterations: number): number {
+    if (!this.options.batching.enabled) return totalIterations;
+    if (this.options.batching.size !== "auto") return this.options.batching.size;
+
+    if (totalIterations < 1000) return Math.max(1, totalIterations / 25);
+    if (totalIterations < 10_000) return Math.max(1, totalIterations / 50);
+    if (totalIterations < 100_000) return Math.max(1, totalIterations / 100);
+    if (totalIterations < 1_000_000) return Math.max(1, totalIterations / 200);
+    return Math.max(1, totalIterations / 500);
+  }
 
   private async runTask(task: Task, tasksCompletedBeforeThis: number, tasksTotal: number): Promise<BenchmarkResult> {
     this.emit("taskStart", { task: task.name });
 
     const taskIterations = await this.computeTaskIterationsForDuration(task);
+    const batchSize = Math.floor(this.getBatchSize(taskIterations));
 
-    let batchSize = taskIterations;
-    if (this.options.batching.enabled) {
-      if (this.options.batching.size === "auto") {
-        if (taskIterations < 1000) batchSize = taskIterations / 25;
-        else if (taskIterations < 10_000) batchSize = taskIterations / 50;
-        else if (taskIterations < 100_000) batchSize = taskIterations / 100;
-        else if (taskIterations < 1_000_000) batchSize = taskIterations / 200;
-        else batchSize = taskIterations / 500;
-      } else batchSize = this.options.batching.size;
-    }
-
-    batchSize = Math.max(1, Math.floor(batchSize));
     const batchCount = this.options.batching.enabled ? Math.ceil(taskIterations / batchSize) : 1;
     const batchTimings = new Float64Array(batchCount);
     const batchSizes = new Uint32Array(batchCount);
