@@ -1,3 +1,9 @@
+# [1.12.0](https://github.com/3rd/benchmate/compare/v1.11.0...v1.12.0) (2024-12-21)
+
+### Features
+
+- account for jit optimizations and outliers ([77a814b](https://github.com/3rd/benchmate/commit/77a814bfd44728708367109ab0e3a7f521aace1b))
+
 # [1.11.0](https://github.com/3rd/benchmate/compare/v1.10.0...v1.11.0) (2024-12-20)
 
 ### Features
