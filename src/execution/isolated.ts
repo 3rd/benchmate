@@ -160,6 +160,7 @@ const acquireFixedTask = async (input: FixedTaskInput): Promise<TaskRecord> => {
   emit("taskPhaseStart", { task: task.name, phase: "measurement" });
   const operationsPerBlock = Math.floor(getOperationsPerBlock(iterationsTotal, options));
   let iterationsCompleted = 0;
+  let lastReportedPercent = 0;
   const startedAtMs = clock.now();
   let round = 0;
   while (iterationsCompleted < iterationsTotal) {
@@ -169,6 +170,18 @@ const acquireFixedTask = async (input: FixedTaskInput): Promise<TaskRecord> => {
       : iterationsTotal - iterationsCompleted;
     await runBlock("measurement", operations, round++);
     iterationsCompleted += operations;
+    const completedPercent = Math.floor((iterationsCompleted / iterationsTotal) * 100);
+    if (iterationsCompleted < iterationsTotal && completedPercent > lastReportedPercent) {
+      lastReportedPercent = completedPercent;
+      emit("progress", {
+        task: task.name,
+        tasksCompleted,
+        tasksTotal,
+        iterationsCompleted,
+        iterationsTotal,
+        elapsedTimeMs: clock.now() - startedAtMs,
+      });
+    }
   }
   emit("taskPhaseEnd", { task: task.name, phase: "measurement" });
   emit("progress", {

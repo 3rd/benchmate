@@ -57,6 +57,15 @@ const printResult: ResultPrinter = (result, clock) => {
     cyan(clock.provider),
     `min tick ${formatMS(clock.minimumPositiveTickMs)}, p99 read pair ${formatMS(clock.readPairCostMs.p99)}`,
   );
+  if (result.evidence.status !== "complete") {
+    const { observationPhase, modelPhase } = result.evidence.statsProvenance;
+    let statisticsSource = `${observationPhase} observations`;
+    if (result.taskType === "kernel") {
+      statisticsSource +=
+        modelPhase === null ? ", no kernel regression model" : `, ${modelPhase} kernel regression models`;
+    }
+    console.log("  descriptive statistics:", yellow(statisticsSource));
+  }
 
   if (result.taskType === "kernel") {
     const range = result.metadata.kernel?.measuredOperationCountRange;

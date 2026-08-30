@@ -1,8 +1,23 @@
 import { expect, test } from "bun:test";
-import type { CallBenchmarkResult, KernelBenchmarkResult, MeasurementObservation } from "../types";
+import type {
+  CallBenchmarkResult,
+  ClockProfile,
+  KernelBenchmarkResult,
+  MeasurementObservation,
+} from "../types";
 import { areResultsComparable } from "./finalize";
-import { printResults } from "./print";
+import { printResult, printResults } from "./print";
 import { computeCallStats } from "./stats";
+
+const clock: ClockProfile = {
+  provider: "performance.now",
+  method: "auto",
+  monotonic: true,
+  sampleCount: 2048,
+  minimumPositiveTickMs: 0.001,
+  zeroDeltaRateX: 0,
+  readPairCostMs: { p50: 0.001, p99: 0.001 },
+};
 
 const callResult = (name: string): CallBenchmarkResult => {
   const observation: MeasurementObservation = {
@@ -22,12 +37,13 @@ const callResult = (name: string): CallBenchmarkResult => {
     taskType: "call",
     stats: computeCallStats([observation]),
     evidence: {
-      schemaVersion: 5,
+      schemaVersion: 6,
       taskType: "call",
       measurement: "auto",
       schedule: "isolated",
       status: "complete",
       reasons: [],
+      statsProvenance: { observationPhase: "measurement", modelPhase: null },
       observations: [observation],
       interval: null,
     },
@@ -60,12 +76,13 @@ const kernelResult = (name: string): KernelBenchmarkResult => {
       operationsPerSecond: { min: 1000, max: 1000, average: 1000 },
     },
     evidence: {
-      schemaVersion: 5,
+      schemaVersion: 6,
       taskType: "kernel",
       measurement: "auto",
       schedule: "isolated",
       status: "complete",
       reasons: [],
+      statsProvenance: { observationPhase: "measurement", modelPhase: "measurement" },
       observations: [],
       interval: null,
     },
@@ -153,4 +170,43 @@ test("prints paired ratio, raw difference, and interval evidence", () => {
   expect(output).toContain("ratio 0.5000");
   expect(output).toContain("difference -1.00ms");
   expect(output).toContain("superblock-t, validated-corpus-v1");
+});
+
+test("labels incomplete descriptive statistics by observation and kernel model provenance", () => {
+  const call = callResult("call");
+  const kernel = kernelResult("kernel");
+  const lines: string[] = [];
+  const originalLog = console.log;
+  console.log = (...values) => lines.push(values.join(" "));
+  try {
+    printResult(
+      {
+        ...call,
+        evidence: {
+          ...call.evidence,
+          status: "warmup-not-converged",
+          statsProvenance: { observationPhase: "warmup", modelPhase: null },
+        },
+      },
+      clock,
+    );
+    printResult(
+      {
+        ...kernel,
+        evidence: {
+          ...kernel.evidence,
+          status: "dependence-unresolved",
+          statsProvenance: { observationPhase: "measurement", modelPhase: "pilot" },
+        },
+      },
+      clock,
+    );
+  } finally {
+    console.log = originalLog;
+  }
+
+  const output = lines.join("\n");
+  expect(output).toContain("descriptive statistics:");
+  expect(output).toContain("warmup observations");
+  expect(output).toContain("measurement observations, pilot kernel regression models");
 });

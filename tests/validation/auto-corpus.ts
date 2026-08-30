@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { resolveOptions } from "../../src/benchmark-input";
 import { createAutoPlan, runAutoMeasurement } from "../../src/execution/auto";
 import { assessStability, findDependencePlan, groupMeans, studentTInterval } from "../../src/results/superblocks";
 import type { ClockProfile } from "../../src/types";
@@ -16,6 +17,14 @@ const clock: ClockProfile = {
   zeroDeltaRateX: 0,
   readPairCostMs: { p50: 0.001, p99: 0.001 },
 };
+
+const browserClock: ClockProfile = {
+  ...clock,
+  minimumPositiveTickMs: 0.005,
+};
+
+const DEFAULT_AUTO_OPTIONS = resolveOptions().run;
+if (DEFAULT_AUTO_OPTIONS.mode !== "auto") throw new Error("Expected automatic measurement defaults.");
 
 const createRandom = (seed: number) => {
   let state = seed >>> 0;
@@ -223,6 +232,41 @@ test("AR(1) rho 0.9 corpus meets completion and coverage gates after reblocking"
   expect(completionRate).toBeGreaterThanOrEqual(0.9);
   expect(coverage).toBeGreaterThanOrEqual(0.935);
   expect(coverage).toBeLessThanOrEqual(0.965);
+}, 60_000);
+
+test("correlated browser-clock defaults do not start final measurement", async () => {
+  let complete = 0;
+  let dependenceUnresolved = 0;
+  let insufficientBudget = 0;
+  let measurementRuns = 0;
+  for (let runIndex = 0; runIndex < RUNS_PER_SCENARIO; runIndex++) {
+    const normal = createNormal(createRandom(CORPUS_SEED_OFFSET + 70_001 + runIndex));
+    let state = 0;
+    const outcome = await runAutoMeasurement({
+      auto: DEFAULT_AUTO_OPTIONS,
+      clock: browserClock,
+      intervalScale: "inverse-ms",
+      runUnit: async (stage, operations) => {
+        if (stage === "pilot" || stage === "measurement") {
+          state = 0.9 * state + Math.sqrt(0.19) * normal();
+        }
+        return {
+          elapsedMs: 10,
+          value: stage === "sizing" || stage === "warmup" ? 1 : Math.max(0.001, 1 + state * 0.005),
+          operations,
+        };
+      },
+    });
+
+    if (outcome.status === "complete") complete++;
+    if (outcome.status === "dependence-unresolved") dependenceUnresolved++;
+    if (outcome.status === "insufficient-budget") insufficientBudget++;
+    if (outcome.measurementValues.length > 0) measurementRuns++;
+  }
+
+  expect(complete).toBe(0);
+  expect(dependenceUnresolved + insufficientBudget).toBe(RUNS_PER_SCENARIO);
+  expect(measurementRuns).toBe(0);
 }, 60_000);
 
 test("warmup step corpus converges only after the changing window is replaced", async () => {

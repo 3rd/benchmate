@@ -12,6 +12,7 @@ import type {
   MeasurementObservation,
   PairedComparison,
   ResolvedBenchmarkOptions,
+  StatsProvenance,
   TaskRecord,
   TaskType,
   ThroughputBenchmarkResult,
@@ -49,6 +50,7 @@ type MeasurementEvidenceInput<Type extends TaskType> = {
   record: TaskRecord;
   observations: readonly MeasurementObservation[];
   measurement: MeasurementMode;
+  statsProvenance: StatsProvenance;
 };
 type MeasurementEvidenceBuilder = <Type extends TaskType>(
   input: MeasurementEvidenceInput<Type>,
@@ -56,12 +58,13 @@ type MeasurementEvidenceBuilder = <Type extends TaskType>(
 
 const createMeasurementEvidence: MeasurementEvidenceBuilder = (input) => {
   return Object.freeze({
-    schemaVersion: 5,
+    schemaVersion: 6,
     taskType: input.taskType,
     measurement: input.measurement,
     schedule: input.record.schedule.rows.length > 0 ? "comparative" : "isolated",
     status: input.record.status,
     reasons: Object.freeze([...input.record.reasons]),
+    statsProvenance: Object.freeze({ ...input.statsProvenance }),
     observations: input.observations,
     interval: input.record.interval,
   });
@@ -318,7 +321,10 @@ const buildBenchmarkResults: BenchmarkResultsBuilder = (records, collector, runM
       (["measurement", "pilot", "warmup", "calibration", "probe"] as const).find((phase) =>
         observations.some((observation) => observation.phase === phase && observation.elapsedMs > 0),
       ) ?? "measurement";
-    const kernelModels = record.kernelModels.length > 0 ? record.kernelModels : record.kernelFallbackModels;
+    const observationStatsProvenance: StatsProvenance = {
+      observationPhase: summaryPhase,
+      modelPhase: null,
+    };
     let measurement: MeasurementMode = "auto";
     if (runMode === "time") measurement = "time";
     else if (runMode === "count") measurement = "iterations";
@@ -332,6 +338,7 @@ const buildBenchmarkResults: BenchmarkResultsBuilder = (records, collector, runM
           record,
           observations,
           measurement,
+          statsProvenance: observationStatsProvenance,
         }),
         metadata: Object.freeze({
           executionKind: record.executionKind,
@@ -351,6 +358,7 @@ const buildBenchmarkResults: BenchmarkResultsBuilder = (records, collector, runM
           record,
           observations,
           measurement,
+          statsProvenance: observationStatsProvenance,
         }),
         metadata: Object.freeze({
           executionKind: record.executionKind,
@@ -370,6 +378,7 @@ const buildBenchmarkResults: BenchmarkResultsBuilder = (records, collector, runM
           record,
           observations,
           measurement,
+          statsProvenance: observationStatsProvenance,
         }),
         metadata: Object.freeze({
           executionKind: "async",
@@ -379,6 +388,15 @@ const buildBenchmarkResults: BenchmarkResultsBuilder = (records, collector, runM
         }),
       };
       return Object.freeze(result);
+    }
+
+    let kernelModels = record.kernelFallbackModels;
+    let kernelModelPhase: StatsProvenance["modelPhase"] = null;
+    if (record.kernelModels.length > 0) {
+      kernelModels = record.kernelModels;
+      kernelModelPhase = "measurement";
+    } else if (record.kernelFallbackModels.length > 0) {
+      kernelModelPhase = "pilot";
     }
 
     let kernel: KernelMeasurement | null = null;
@@ -404,6 +422,10 @@ const buildBenchmarkResults: BenchmarkResultsBuilder = (records, collector, runM
         record,
         observations,
         measurement,
+        statsProvenance: {
+          observationPhase: "measurement",
+          modelPhase: kernelModelPhase,
+        },
       }),
       metadata: Object.freeze({
         executionKind: "sync",

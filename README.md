@@ -50,10 +50,12 @@ const bench = new Bench({
 These values are the defaults:
 
 - `precisionX: 0.01` requests a confidence interval with a relative half-width of 1%.
-- `maxTimeMs: 15_000` limits the full measurement process for each task.
+- `maxTimeMs: 15_000` limits timer-safe sizing, warmup, pilot dependence analysis, and fresh final confirmation for each task.
 - `maxWarmupTimeMs: 5_000` limits warmup within that time.
 
 `maxTimeMs` is a limit, not a target. A stable task can finish earlier.
+
+Correlated pilot readings can consume the budget before final confirmation starts. In that case, Benchmate returns incomplete evidence with a null interval. Increase `maxTimeMs` when the environment needs more time to resolve dependence.
 
 Tasks run separately by default. Use [comparative measurement](#compare-tasks) when you want Benchmate to alternate compatible tasks.
 
@@ -148,6 +150,8 @@ for (const entry of result.entries) {
 
 Kernel tasks must be synchronous. Benchmate rejects a Promise-like result.
 
+Kernel mode changes the timing model for tiny loops. It still uses automatic pilot dependence analysis and does not guarantee convergence within `maxTimeMs`.
+
 Benchmate flags a kernel when its time does not grow with `iterationCount`. It also flags results that stay constant or cannot be inspected.
 
 Set `constantResult: true` only when the kernel intentionally returns the same value for every operation count.
@@ -238,9 +242,13 @@ const bench = new Bench({
 
 `operationsPerBlock` and both `iterations` fields are item counts, so their names do not contain a unit suffix.
 
+Fixed-run intervals are nominal batch intervals. They do not assess serial dependence. Use automatic measurement when you need dependence-validated evidence.
+
 ## Compare tasks
 
 Comparative measurement alternates compatible tasks in a balanced order. This avoids always measuring one task before another.
+
+Comparative measurement requires at least two registered tasks.
 
 ```ts
 const bench = new Bench({
@@ -314,7 +322,7 @@ type ThroughputStats = {
 
 Each time summary has `min`, `max`, `average`, `median`, and percentile fields. The parent field names show that these values use milliseconds.
 
-`elapsedMs` is the sum of the measured block durations. Count fields contain item counts, and rate fields contain items per second.
+Count fields contain item counts, and rate fields contain items per second.
 
 Call results also include a harness model:
 
@@ -425,6 +433,8 @@ The public events are `benchmarkStart`, `taskStart`, `taskPhaseStart`, `taskPhas
 
 `taskComplete` receives one `BenchmarkResult`. `benchmarkEnd` receives the same object that `run()` returns.
 
+Multi-block fixed runs emit at most one intermediate `progress` event after a completed physical block when completion reaches a new whole percentage from 1% through 99%. Every fixed run emits one terminal event with the final totals after the measurement phase ends. Automatic progress counters are phase-local: `physicalBlocksCompleted`, `operationsCompleted`, and `elapsedTimeMs` reset when the phase changes.
+
 ## Keep measured work observable
 
 JavaScript engines can remove work when its result has no effect. Return a value produced by the measured work when possible.
@@ -451,7 +461,7 @@ Benchmate uses `performance.now()` when `process.hrtime.bigint()` is not availab
 
 Run untrusted tasks in a Worker that your application owns. Benchmate does not create Workers or rewrite user source.
 
-Chromium is the browser release target. See the [browser host guide](./benchmate-web.md) for Worker and CSP integration.
+Chromium is the browser release target.
 
 Benchmate does not claim release validation for Firefox or WebKit.
 

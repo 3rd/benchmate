@@ -77,13 +77,19 @@ type IntervalEvidence = {
   assumptions: readonly string[];
 };
 
+type StatsProvenance = {
+  observationPhase: MeasurementPhase;
+  modelPhase: "measurement" | "pilot" | null;
+};
+
 type MeasurementEvidence<Type extends TaskType = TaskType> = {
-  schemaVersion: 5;
+  schemaVersion: 6;
   taskType: Type;
   measurement: MeasurementMode;
   schedule: "comparative" | "isolated";
   status: EvidenceStatus;
   reasons: readonly string[];
+  statsProvenance: StatsProvenance;
   observations: readonly MeasurementObservation[];
   interval: IntervalEvidence | null;
 };
@@ -518,6 +524,7 @@ export type {
   ResolvedBenchmarkOptions,
   ResolvedMeasurementSchedule,
   ScheduleSnapshot,
+  StatsProvenance,
   Task,
   TaskDefinition,
   TaskRecord,

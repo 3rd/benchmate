@@ -40,6 +40,7 @@ export type {
   PairedRoundComparison,
   RateSummary,
   ScheduleSnapshot,
+  StatsProvenance,
   TaskStats,
   TaskType,
   ThroughputBenchmarkMetadata,

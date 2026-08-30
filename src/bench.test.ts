@@ -5,11 +5,16 @@ import type {
   BenchmarkRunResult,
   CallBenchmarkResult,
   EndToEndBenchmarkResult,
+  FixedProgress,
   KernelBenchmarkResult,
+  KernelRoundModel,
+  TaskRecord,
   ThroughputBenchmarkResult,
 } from "./types";
 import { Bench, resolveOptions } from "./bench";
+import { ObservationCollector } from "./evidence/observations";
 import { global } from "./platform/global";
+import { buildBenchmarkResults } from "./results/finalize";
 
 const requireCallResult = (result: BenchmarkResult | undefined): CallBenchmarkResult => {
   if (result?.taskType !== "call") throw new Error("Expected a call benchmark result.");
@@ -200,6 +205,10 @@ test("returns useful automatic statistics when slow code cannot complete the ful
 
     expect(result?.evidence.status).toBe("warmup-not-converged");
     expect(result?.evidence.interval).toBeNull();
+    expect(result?.evidence.statsProvenance).toEqual({
+      observationPhase: "warmup",
+      modelPhase: null,
+    });
     expect(callResult.stats.timePerOperationMs.average).toBe(500);
     expect(callResult.stats.operationsPerSecond.average).toBe(2);
   } finally {
@@ -222,6 +231,11 @@ test("returns raw ordered iteration override evidence and keeps the harness mode
     result?.evidence.observations.filter((observation) => observation.phase === "measurement") ?? [];
 
   expect(result?.evidence.measurement).toBe("iterations");
+  expect(result?.evidence.schemaVersion).toBe(6);
+  expect(result?.evidence.statsProvenance).toEqual({
+    observationPhase: "measurement",
+    modelPhase: null,
+  });
   expect(clock.sampleCount).toBe(2048);
   expect(measured).toHaveLength(2);
   expect(measured.map((observation) => observation.sequence)).toEqual(
@@ -234,6 +248,78 @@ test("returns raw ordered iteration override evidence and keeps the harness mode
   expect(callResult.stats.harnessOverhead.observationSequences).toHaveLength(5);
   expect(Object.isFrozen(result?.evidence.observations)).toBeTrue();
   expect(result?.evidence.interval).toMatchObject({ method: "batch-t", coverage: "nominal" });
+});
+
+test("emits fixed progress once per completed whole percentage without changing measured totals", async () => {
+  const originalProcess = global.process;
+  let nowNanoseconds = 0n;
+  const lifecycle: string[] = [];
+  const progress: FixedProgress[] = [];
+  global.process = { env: originalProcess?.env, hrtime: { bigint: () => nowNanoseconds } };
+  try {
+    const bench = new Bench({
+      iterations: 200,
+      method: "hrtime",
+      warmup: { enabled: false },
+      batching: { enabled: true, operationsPerBlock: 1 },
+      quiet: true,
+    });
+    bench.add("fixed progress", () => {
+      nowNanoseconds += 1_000_000n;
+      return 1;
+    });
+    bench.on("taskPhaseEnd", ({ phase }) => lifecycle.push(`end:${phase}`));
+    bench.on("progress", (event) => {
+      if ("phase" in event) return;
+      progress.push(event);
+      lifecycle.push(`progress:${event.iterationsCompleted}`);
+      nowNanoseconds += 10_000_000n;
+    });
+
+    const { entries: [result] } = await bench.run();
+    const callResult = requireCallResult(result);
+    const intermediateProgress = progress.slice(0, -1);
+    expect(
+      intermediateProgress.map((event) =>
+        Math.floor((event.iterationsCompleted / event.iterationsTotal) * 100),
+      ),
+    ).toEqual(
+      Array.from({ length: 99 }, (_, index) => index + 1),
+    );
+    const elapsedTimes = progress.map((event) => event.elapsedTimeMs);
+    expect(elapsedTimes).toEqual([...elapsedTimes].sort((left, right) => left - right));
+    expect(new Set(elapsedTimes).size).toBe(elapsedTimes.length);
+    expect(progress.at(-1)).toMatchObject({
+      tasksCompleted: 0,
+      tasksTotal: 1,
+      iterationsCompleted: 200,
+      iterationsTotal: 200,
+    });
+    expect(lifecycle.slice(-2)).toEqual(["end:measurement", "progress:200"]);
+    expect(callResult.stats.operations).toBe(200);
+    expect(callResult.stats.elapsedMs).toBe(200);
+  } finally {
+    global.process = originalProcess;
+  }
+});
+
+test("keeps a single-block fixed run terminal-only", async () => {
+  const progress: FixedProgress[] = [];
+  const bench = new Bench({
+    iterations: 3,
+    warmup: { enabled: false },
+    batching: { enabled: false },
+    quiet: true,
+  });
+  bench.add("single block", () => 1);
+  bench.on("progress", (event) => {
+    if (!("phase" in event)) progress.push(event);
+  });
+
+  await bench.run();
+
+  expect(progress).toHaveLength(1);
+  expect(progress[0]).toMatchObject({ iterationsCompleted: 3, iterationsTotal: 3 });
 });
 
 test("fixed measurement does not require a random-seed provider", async () => {
@@ -275,6 +361,10 @@ test("marks a zero-duration iteration override result timer-limited", async () =
 
     expect(result?.evidence.status).toBe("timer-limited");
     expect(result?.evidence.interval).toBeNull();
+    expect(result?.evidence.statsProvenance).toEqual({
+      observationPhase: "measurement",
+      modelPhase: null,
+    });
     expect(
       result?.evidence.observations
         .filter((observation) => observation.phase === "measurement")
@@ -283,6 +373,64 @@ test("marks a zero-duration iteration override result timer-limited", async () =
   } finally {
     global.process = originalProcess;
   }
+});
+
+test("identifies pilot kernel models without changing measurement-only totals", () => {
+  const collector = new ObservationCollector();
+  collector.record({
+    task: "kernel fallback",
+    phase: "pilot",
+    startedAtMs: 0,
+    elapsedMs: 8,
+    operations: 15,
+    round: 0,
+    seed: 1,
+    resultHash: "pilot",
+  });
+  const fallbackModel: KernelRoundModel = {
+    round: 0,
+    seed: 1,
+    operationCountOrder: [1, 2, 4, 8],
+    interceptMs: 1,
+    slopeMsPerOperation: 0.01,
+    residualsMs: [0, 0, 0, 0],
+    fittedMs: [1.01, 1.02, 1.04, 1.08],
+    rSquaredX: 1,
+    lowRangeSlopeMsPerOperation: 0.01,
+    highRangeSlopeMsPerOperation: 0.01,
+    resultHashes: ["1", "2", "4", "8"],
+    flags: [],
+  };
+  const record: TaskRecord = {
+    task: {
+      name: "kernel fallback",
+      definition: { mode: "kernel", run: ({ iterationCount }) => iterationCount },
+    },
+    groupKey: "kernel",
+    status: "dependence-unresolved",
+    reasons: ["pilot budget ended before a variance plateau was established"],
+    interval: null,
+    executionKind: "sync",
+    overhead: { perInvocationMs: 0, sampleCount: 0, observationSequences: [] },
+    schedule: { seed: null, yieldBetweenRounds: false, rows: [] },
+    kernelModels: [],
+    kernelFallbackModels: [fallbackModel],
+    kernelBaseCount: 2,
+    kernelLadder: [1, 2, 4, 8],
+    plan: null,
+  };
+
+  const [result] = buildBenchmarkResults([record], collector, "auto");
+  const kernelResult = requireKernelResult(result);
+
+  expect(kernelResult.evidence.statsProvenance).toEqual({
+    observationPhase: "measurement",
+    modelPhase: "pilot",
+  });
+  expect(kernelResult.stats.operations).toBe(0);
+  expect(kernelResult.stats.elapsedMs).toBe(0);
+  expect(kernelResult.stats.rounds).toBe(1);
+  expect(kernelResult.stats.timePerOperationMs.average).toBe(0.01);
 });
 
 test("bounds frozen-clock time override calibration and returns timer-limited evidence", async () => {
@@ -467,6 +615,10 @@ test("runs counted kernels through fresh round-slope measurement evidence", asyn
     const kernelResult = requireKernelResult(result);
 
     expect(result?.evidence.status).toBe("complete");
+    expect(kernelResult.evidence.statsProvenance).toEqual({
+      observationPhase: "measurement",
+      modelPhase: "measurement",
+    });
     expect(result?.evidence.interval).toMatchObject({
       method: "round-slope-t",
       coverage: "validated-corpus-v1",
@@ -530,6 +682,10 @@ test("returns timer-limited evidence when a kernel never clears clock quantizati
     const { entries: [result] } = await bench.run();
 
     expect(result?.evidence.status).toBe("timer-limited");
+    expect(result?.evidence.statsProvenance).toEqual({
+      observationPhase: "measurement",
+      modelPhase: null,
+    });
     expect(result?.evidence.interval).toBeNull();
     expect(
       result?.evidence.observations.every((observation) => observation.flags.includes("clock-quantized")),

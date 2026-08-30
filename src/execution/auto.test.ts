@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import type { ClockProfile } from "../types";
+import { resolveOptions } from "../benchmark-input";
 import { runAutoMeasurement } from "./auto";
 
 const clock: ClockProfile = {
@@ -11,6 +12,9 @@ const clock: ClockProfile = {
   zeroDeltaRateX: 0,
   readPairCostMs: { p50: 0.001, p99: 0.001 },
 };
+
+const DEFAULT_AUTO_OPTIONS = resolveOptions().run;
+if (DEFAULT_AUTO_OPTIONS.mode !== "auto") throw new Error("Expected automatic measurement defaults.");
 
 test("locks a fresh fixed measurement horizon after stable warmup and planning", async () => {
   const phases: string[] = [];
@@ -86,4 +90,39 @@ test("does not extend a locked horizon when final precision is missed", async ()
   expect(outcome.measurementValues).toHaveLength(80);
   expect(outcome.status).toBe("precision-missed");
   expect(outcome.interval).toBeNull();
+});
+
+test("keeps correlated browser-clock evidence incomplete when fresh confirmation cannot fit", async () => {
+  const browserClock: ClockProfile = {
+    ...clock,
+    minimumPositiveTickMs: 0.005,
+  };
+  let state = 0;
+  let seed = 42;
+  let pilotBlocks = 0;
+  const outcome = await runAutoMeasurement({
+    auto: DEFAULT_AUTO_OPTIONS,
+    clock: browserClock,
+    intervalScale: "inverse-ms",
+    runUnit: async (stage, operations) => {
+      let value = 1;
+      if (stage === "pilot") {
+        seed = (Math.imul(seed, 1_664_525) + 1_013_904_223) >>> 0;
+        const innovation = seed / 0x1_0000_0000 - 0.5;
+        state = 0.9 * state + innovation;
+        value += state * 0.001;
+        pilotBlocks++;
+      }
+      return { elapsedMs: 10, value, operations };
+    },
+  });
+
+  expect(outcome.status).toBe("insufficient-budget");
+  expect(outcome.interval).toBeNull();
+  expect(outcome.measurementValues).toEqual([]);
+  expect(pilotBlocks).toBe(1_024);
+  expect(outcome.plan).toMatchObject({
+    physicalBlocksPerSuperblock: 128,
+    physicalBlockCount: 2_560,
+  });
 });

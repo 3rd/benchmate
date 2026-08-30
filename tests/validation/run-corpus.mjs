@@ -4,16 +4,16 @@ const AUTO_CORPUS_FILE = "./tests/validation/auto-corpus.ts";
 const KERNEL_CORPUS_FILE = "./tests/validation/kernel-corpus.ts";
 const RUNTIME_NOISE_CORPUS_FILE = "./tests/validation/runtime-noise-corpus.ts";
 const FULL_CORPUS_COUNT = 10_000;
-const AR_SHARD_COUNT = 4;
-const AR_SHARD_SIZE = FULL_CORPUS_COUNT / AR_SHARD_COUNT;
+const SHARD_COUNT = 4;
+const SHARD_SIZE = FULL_CORPUS_COUNT / SHARD_COUNT;
 
-const createArScenarios = (pattern) =>
-  Array.from({ length: AR_SHARD_COUNT }, (_, shardIndex) => [
+const createShardedScenarios = (pattern) =>
+  Array.from({ length: SHARD_COUNT }, (_, shardIndex) => [
     AUTO_CORPUS_FILE,
     pattern,
     {
-      BENCHMATE_CORPUS_COUNT: String(AR_SHARD_SIZE),
-      BENCHMATE_CORPUS_SEED_OFFSET: String(shardIndex * AR_SHARD_SIZE),
+      BENCHMATE_CORPUS_COUNT: String(SHARD_SIZE),
+      BENCHMATE_CORPUS_SEED_OFFSET: String(shardIndex * SHARD_SIZE),
     },
   ]);
 
@@ -21,9 +21,10 @@ const scenarios = [
   [AUTO_CORPUS_FILE, "stationary normal"],
   [AUTO_CORPUS_FILE, "stationary lognormal"],
   [AUTO_CORPUS_FILE, "tighter precision"],
-  ...createArScenarios("rho 0 corpus"),
-  ...createArScenarios("rho 0.5 corpus"),
-  ...createArScenarios("rho 0.9 corpus"),
+  ...createShardedScenarios("rho 0 corpus"),
+  ...createShardedScenarios("rho 0.5 corpus"),
+  ...createShardedScenarios("rho 0.9 corpus"),
+  ...createShardedScenarios("correlated browser-clock defaults"),
   [AUTO_CORPUS_FILE, "warmup step"],
   [AUTO_CORPUS_FILE, "late final-tier"],
   [AUTO_CORPUS_FILE, "positive and negative"],
