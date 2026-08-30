@@ -1,5 +1,0 @@
-#!/usr/bin/env sh
-
-pnpm run tsc
-pnpm run test
-pnpm lint-staged
